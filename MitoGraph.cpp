@@ -27,6 +27,7 @@
 #include <vtkPolyDataWriter.h>
 #include <vtkContourFilter.h>
 #include <vtkDoubleArray.h>
+#include <vtkTIFFReader.h>
 #include <vtkPointData.h>
 #include <vtkImageRFFT.h>
 #include <vtkImageCast.h>
@@ -106,6 +107,11 @@ void GetDivergentFilter(int *Dim, vtkDoubleArray *Scalars);
 
 // This routine saves a 3D volume as VTK legacy file
 void SaveImageData(vtkImageData *Image);
+
+// This routine converts 16-bit volumes into 8-bit volumes by
+// linearly scaling the original range of intensities [min,max]
+// in [0,255] (http://rsbweb.nih.gov/ij/docs/guide/146-28.html)
+vtkImageData *Convert16To8bit(vtkImageData *Image16);
 
 // This routine saves a 3D polydata as VTK legacy file
 void SavePolyData(vtkPolyData *PolyData, const char FileName[]);
@@ -217,6 +223,55 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
         printf("File Saved!\n");
     #endif
 }
+
+/* ================================================================
+   IMAGE TRANSFORM
+=================================================================*/
+
+vtkImageData *Convert16To8bit(vtkImageData *Image) {
+
+    // 8-Bit images
+    if (Image -> GetScalarType() == VTK_UNSIGNED_CHAR) {
+
+        return Image;
+
+    // 16-Bit images
+    } else if (Image -> GetScalarType() == VTK_UNSIGNED_SHORT) {
+
+        printf("Converting from 16-bit to 8-bit...\n");
+
+        vtkImageData *Image8 = vtkImageData::New();
+        Image8 -> ShallowCopy(Image);
+
+        vtkDataArray *ScalarsShort = Image -> GetPointData() -> GetScalars();
+        unsigned long int N = ScalarsShort -> GetNumberOfTuples();
+        double range[2];
+        ScalarsShort -> GetRange(range);
+
+        printf("Original intensities range: [%d-%d]\n",(int)range[0],(int)range[1]);
+
+        vtkSmartPointer<vtkUnsignedCharArray> ScalarsChar = vtkSmartPointer<vtkUnsignedCharArray>::New();
+        ScalarsChar -> SetNumberOfComponents(1);
+        ScalarsChar -> SetNumberOfTuples(N);
+        
+        double x, y;
+        unsigned long int register id;
+        for ( id = N; id--; ) {
+            x = ScalarsShort -> GetTuple1(id);
+            y = 255.0 * (x-range[0]) / (range[1]-range[0]);
+            ScalarsChar -> SetTuple1(id,(unsigned char)y);
+        }
+        ScalarsChar -> Modified();
+
+        Image8 -> GetPointData() -> SetScalars(ScalarsChar);
+        return Image8;
+
+    // Other depth
+    } else {
+        return NULL;
+    }
+}
+
 
 /* ================================================================
    BORDER ROUTINES
@@ -775,11 +830,21 @@ int main(int argc, char *argv[]) {
     printf("Scales to run: [%1.3f-%1.3f]\n",1.00,1.50);
     printf("==============\n\n");
 
-    vtkSmartPointer<vtkStructuredPointsReader> reader = vtkSmartPointer<vtkStructuredPointsReader>::New();
-    reader -> SetFileName(argv[1]);
-    reader -> Update();
+    // Loading multi-paged TIFF file (Supported by VTK 6.2 and higher)
+    char _prefix[64];
+    sprintf(_prefix,"%s.tif",argv[1]);
+    vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
+    TIFFReader -> SetFileName(_prefix);
+    TIFFReader -> Update();
 
-    vtkImageData *ImageO = reader -> GetOutput();
+    //vtkSmartPointer<vtkStructuredPointsReader> reader = vtkSmartPointer<vtkStructuredPointsReader>::New();
+    //reader -> SetFileName(argv[1]);
+    //reader -> Update();
+    //vtkImageData *ImageO = reader -> GetOutput();
+
+    vtkImageData *ImageO = Convert16To8bit(TIFFReader->GetOutput());
+
+    if (!ImageO) printf("Format not supported.\n");
 
     vtkImageData *Image = AddBorder(ImageO);
 
