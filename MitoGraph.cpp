@@ -20,6 +20,7 @@
 #include <vtkStructuredPoints.h>
 #include <vtkInformationVector.h>
 #include <vtkUnsignedCharArray.h>
+#include <vtkUnsignedShortArray.h>
 #include <vtkStructuredPointsWriter.h>
 #include <vtkImageExtractComponents.h>
 #include <vtkStructuredPointsReader.h>
@@ -28,11 +29,16 @@
 #include <vtkContourFilter.h>
 #include <vtkDoubleArray.h>
 #include <vtkTIFFReader.h>
+#include <vtkTIFFWriter.h>
 #include <vtkPointData.h>
 #include <vtkImageRFFT.h>
 #include <vtkImageCast.h>
 
 //#define DEBUG
+
+// In order to acess the voxel (x,y,z) from ImageJ, I should use
+// GetId(x,(Dim[1]-1)-y,z,Dim);
+// Or change the volume orientation...
 
 // This routine returns the x of the id-th point of a 3D volume
 // of size Dim[0]xDim[1]xDim[2]
@@ -111,7 +117,9 @@ void SaveImageData(vtkImageData *Image);
 // This routine converts 16-bit volumes into 8-bit volumes by
 // linearly scaling the original range of intensities [min,max]
 // in [0,255] (http://rsbweb.nih.gov/ij/docs/guide/146-28.html)
-vtkImageData *Convert16To8bit(vtkImageData *Image16);
+vtkImageData *Convert16To8bit(vtkImageData *Image);
+
+vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image);
 
 // This routine saves a 3D polydata as VTK legacy file
 void SavePolyData(vtkPolyData *PolyData, const char FileName[]);
@@ -270,6 +278,36 @@ vtkImageData *Convert16To8bit(vtkImageData *Image) {
     } else {
         return NULL;
     }
+}
+
+vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image) {
+
+    vtkImageData *Image16 = vtkImageData::New();
+    Image16 -> ShallowCopy(Image);
+
+    vtkDataArray *ScalarsDouble = Image -> GetPointData() -> GetScalars();
+    unsigned long int N = ScalarsDouble -> GetNumberOfTuples();
+    double range[2];
+    ScalarsDouble -> GetRange(range);
+
+    printf("Original intensities range: [%1.3f-%1.3f]\n",range[0],range[1]);
+
+    vtkSmartPointer<vtkUnsignedShortArray> ScalarsShort = vtkSmartPointer<vtkUnsignedShortArray>::New();
+    ScalarsShort -> SetNumberOfComponents(1);
+    ScalarsShort -> SetNumberOfTuples(N);
+        
+    double x, y;
+    unsigned long int register id;
+    for ( id = N; id--; ) {
+        x = ScalarsDouble -> GetTuple1(id);
+        y = 65535.0 * (x-range[0]) / (range[1]-range[0]);
+            ScalarsShort -> SetTuple1(id,(unsigned short)y);
+    }
+    ScalarsShort -> Modified();
+
+    Image16 -> GetPointData() -> SetScalars(ScalarsShort);
+    return Image16;
+
 }
 
 
@@ -708,7 +746,11 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
     double ftresh,frobenius_norm_range[2];
     Fro -> GetRange(frobenius_norm_range);
     ftresh = sqrt(frobenius_norm_range[1]);
+
+    double favg = 0.0;
+
     for ( id = N; id--; ) {
+        favg += Fro->GetTuple1(id);
         if ( Fro->GetTuple1(id) < ftresh) {
             L1 -> SetTuple1(id,0.0);
             L2 -> SetTuple1(id,0.0);
@@ -718,6 +760,7 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
     L1 -> Modified();
     L2 -> Modified();
     L3 -> Modified();
+
 }
 
 /* ================================================================
@@ -822,31 +865,76 @@ void GetDivergentFilter(int *Dim, vtkDoubleArray *Scalars) {
 =================================================================*/
 
 int main(int argc, char *argv[]) {     
-           
-    printf("===============\n");
-    printf("---MitoGraph---\n");
-    printf("===============\n");
-    printf("File Name: %s\n",argv[1]);
-    printf("Scales to run: [%1.3f-%1.3f]\n",1.00,1.50);
-    printf("==============\n\n");
+
+/* ================================================================
+   LOADING DATA
+=================================================================*/
+
+    int i;
+    char _prefix[64];
+    char _impath[128];
+    sprintf(_prefix,"_x");
+    sprintf(_impath,"");
+    double _sigmai = 1.00;
+    double _sigmaf = 1.50;
+    double _dsigma = 0.10;
+
+    // Collecting input parameters
+    for (i = 0; i < argc; i++) {
+        if (!strcmp(argv[i],"-path")) {
+            sprintf(_impath,"%s//",argv[i+1]);
+        }
+        if (!strcmp(argv[i],"-prefix")) {
+            sprintf(_prefix,"%s",argv[i+1]);
+        }
+        if (!strcmp(argv[i],"-scales")) {
+            _sigmai = atof(argv[i+1]);
+            _dsigma = atof(argv[i+2]);
+            _sigmaf = atof(argv[i+3]);
+        }
+    }
+    if (!strcmp(_prefix,"_x")) {
+        printf("Please, use -prefix [filename] to provide the file name.\n");
+        return -1;
+    }
 
     // Loading multi-paged TIFF file (Supported by VTK 6.2 and higher)
-    char _prefix[64];
-    sprintf(_prefix,"%s.tif",argv[1]);
+    char _fullpath[256];
+    sprintf(_fullpath,"%s%s.tif",_impath,_prefix);
     vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
-    TIFFReader -> SetFileName(_prefix);
+    int errlog = TIFFReader -> CanReadFile(_fullpath);
+    // File cannot be openned
+    if (!errlog) {
+        printf("File %s connot be openned.\n",_fullpath);
+        return -1;
+    }
+    TIFFReader -> SetFileName(_fullpath);
     TIFFReader -> Update();
 
-    //vtkSmartPointer<vtkStructuredPointsReader> reader = vtkSmartPointer<vtkStructuredPointsReader>::New();
-    //reader -> SetFileName(argv[1]);
-    //reader -> Update();
-    //vtkImageData *ImageO = reader -> GetOutput();
+/* ================================================================
+   DATA CONVERSION
+=================================================================*/
 
-    vtkImageData *ImageO = Convert16To8bit(TIFFReader->GetOutput());
+    int *Dim = TIFFReader -> GetOutput() -> GetDimensions();
 
-    if (!ImageO) printf("Format not supported.\n");
+    printf("======================================\n");
+    printf("---MitoGraph V2.0---------------------\n");
+    printf("======================================\n");
+    printf("File name: %s\n",_fullpath);
+    printf("Volume dimensions: %dx%dx%d\n",Dim[0],Dim[1],Dim[2]);
+    printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",_sigmai,_dsigma,_sigmaf);
+    printf("======================================\n");
 
-    vtkImageData *Image = AddBorder(ImageO);
+    // Conversion 16-bit to 8-bit
+    vtkImageData *Image = Convert16To8bit(TIFFReader->GetOutput());
+
+    if (!Image) printf("Format not supported.\n");
+
+/* ================================================================
+   BORDER
+=================================================================*/
+
+    //vtkImageData *Image = AddBorder(ImageO);
 
     int N = Image -> GetNumberOfPoints();
 
@@ -863,9 +951,12 @@ int main(int argc, char *argv[]) {
 
     unsigned long int id;
     double sigma, vn, vo;
-    int *Dim = Image -> GetDimensions();
 
-    for ( sigma = 1.00; sigma <= 1.60; sigma += 0.10 ) {
+/* ================================================================
+   MULTISCALE VESSELNESS
+=================================================================*/
+
+    for ( sigma = _sigmai; sigma <= _sigmaf; sigma += _dsigma ) {
         
         printf("Sigma = %1.3f\n",sigma);
         
@@ -882,13 +973,47 @@ int main(int argc, char *argv[]) {
     }
     VSSS -> Modified();
 
+/* ================================================================
+   DIVERGENT
+=================================================================*/
+
     GetDivergentFilter(Dim,VSSS);
 
-    int *DimO = ImageO -> GetDimensions();
+/* ================================================================
+   BORDER
+=================================================================*/
 
-    vtkImageData *ImageEnhanced = RemoveBorder(Dim,VSSS,DimO);
+    //int *DimO = ImageO -> GetDimensions();
+    //vtkImageData *ImageEnhanced = RemoveBorder(Dim,VSSS,DimO);
 
-    SaveImageData(ImageEnhanced,"ImageData_Vesselness.vtk");
+    vtkImageData *ImageEnhanced = vtkImageData::New();
+    ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
+    ImageEnhanced -> SetDimensions(Dim);
+    #if (VTK_MAJOR_VERSION==5)    
+        Image -> Update();
+    #endif
+
+
+/* ================================================================
+   SAVING IMAGEDATA
+=================================================================*/
+
+
+    vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
+
+   // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
+   // TIFFWriter-> SetFileName("Temp.tif");
+   //  TIFFWriter->SetFileDimensionality(3);
+   //  TIFFWriter->SetCompressionToNoCompression();
+   // TIFFWriter-> SetInputData(NewImage);
+   // TIFFWriter-> Write();
+
+    sprintf(_fullpath,"%s%s_vesselness.vtk",_impath,_prefix);
+    SaveImageData(NewImage,_fullpath);
+
+/* ================================================================
+   CREATING SURFACE POLYDATA
+=================================================================*/
 
     vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
     #if (VTK_MAJOR_VERSION==5)
@@ -899,7 +1024,12 @@ int main(int argc, char *argv[]) {
     Filter -> SetValue(1,0.16667);
     Filter -> Update();
 
-    SavePolyData(Filter->GetOutput(),"Surface.vtk");
+/* ================================================================
+   SAVING SURFACE
+=================================================================*/
+
+    sprintf(_fullpath,"%s%s_surface.vtk",_impath,_prefix);
+    SavePolyData(Filter->GetOutput(),_fullpath);
 
     return 0;
 }
