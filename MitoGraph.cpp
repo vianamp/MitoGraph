@@ -747,10 +747,7 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
     Fro -> GetRange(frobenius_norm_range);
     ftresh = sqrt(frobenius_norm_range[1]);
 
-    double favg = 0.0;
-
     for ( id = N; id--; ) {
-        favg += Fro->GetTuple1(id);
         if ( Fro->GetTuple1(id) < ftresh) {
             L1 -> SetTuple1(id,0.0);
             L2 -> SetTuple1(id,0.0);
@@ -864,12 +861,12 @@ void GetDivergentFilter(int *Dim, vtkDoubleArray *Scalars) {
    MAIN ROUTINE
 =================================================================*/
 
-int main(int argc, char *argv[]) {     
+int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf) {     
 
 /* ================================================================
    LOADING DATA
 =================================================================*/
-
+/*
     int i;
     char _prefix[64];
     char _impath[128];
@@ -897,15 +894,15 @@ int main(int argc, char *argv[]) {
         printf("Please, use -prefix [filename] to provide the file name.\n");
         return -1;
     }
-
+*/
     // Loading multi-paged TIFF file (Supported by VTK 6.2 and higher)
     char _fullpath[256];
-    sprintf(_fullpath,"%s%s.tif",_impath,_prefix);
+    sprintf(_fullpath,"%s.tif",FileName);
     vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
     int errlog = TIFFReader -> CanReadFile(_fullpath);
     // File cannot be openned
     if (!errlog) {
-        printf("File %s connot be openned.\n",_fullpath);
+        printf("File %s connot be opened.\n",_fullpath);
         return -1;
     }
     TIFFReader -> SetFileName(_fullpath);
@@ -1008,7 +1005,7 @@ int main(int argc, char *argv[]) {
    // TIFFWriter-> SetInputData(NewImage);
    // TIFFWriter-> Write();
 
-    sprintf(_fullpath,"%s%s_vesselness.vtk",_impath,_prefix);
+    sprintf(_fullpath,"%s_vesselness.vtk",FileName);
     SaveImageData(NewImage,_fullpath);
 
 /* ================================================================
@@ -1028,9 +1025,50 @@ int main(int argc, char *argv[]) {
    SAVING SURFACE
 =================================================================*/
 
-    sprintf(_fullpath,"%s%s_surface.vtk",_impath,_prefix);
+    sprintf(_fullpath,"%s_surface.vtk",FileName);
     SavePolyData(Filter->GetOutput(),_fullpath);
 
     return 0;
 }
 
+int main(int argc, char *argv[]) {     
+
+    int i;
+    char _prefix[64];
+    char _impath[128];
+    sprintf(_prefix,"_x");
+    sprintf(_impath,"");
+    double _sigmai = 1.00;
+    double _sigmaf = 1.50;
+    double _dsigma = 0.10;
+
+    // Collecting input parameters
+    for (i = 0; i < argc; i++) {
+        if (!strcmp(argv[i],"-path")) {
+            sprintf(_impath,"%s//",argv[i+1]);
+        }
+        if (!strcmp(argv[i],"-prefix")) {
+            sprintf(_prefix,"%s",argv[i+1]);
+        }
+        if (!strcmp(argv[i],"-scales")) {
+            _sigmai = atof(argv[i+1]);
+            _dsigma = atof(argv[i+2]);
+            _sigmaf = atof(argv[i+3]);
+        }
+    }
+
+    char _cmd[256];
+    sprintf(_cmd,"ls %s*.tif | sed -e 's/\\..*$//' > %smitograph.files",_impath,_impath);
+    system(_cmd);
+
+    char _tifffilename[256];
+    char _tifflistpath[128];
+    sprintf(_tifflistpath,"%smitograph.files",_impath);
+    FILE *f = fopen(_tifflistpath,"r");
+    while (fgets(_tifffilename,256, f) != NULL) {
+        _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
+        MultiscaleVesselness(_tifffilename,_sigmai,_dsigma,_sigmaf);
+    }
+    fclose(f);
+
+}
