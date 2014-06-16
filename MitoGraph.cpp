@@ -998,12 +998,12 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
 
-   // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
-   // TIFFWriter-> SetFileName("Temp.tif");
-   //  TIFFWriter->SetFileDimensionality(3);
-   //  TIFFWriter->SetCompressionToNoCompression();
-   // TIFFWriter-> SetInputData(NewImage);
-   // TIFFWriter-> Write();
+    vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
+    TIFFWriter -> SetFileName("Temp.tif");
+    TIFFWriter -> SetFileDimensionality(3);
+    TIFFWriter -> SetCompressionToNoCompression();
+    TIFFWriter -> SetInputData(NewImage);
+    TIFFWriter -> Write();
 
     sprintf(_fullpath,"%s_vesselness.vtk",FileName);
     SaveImageData(NewImage,_fullpath);
