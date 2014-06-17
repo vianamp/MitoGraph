@@ -42,19 +42,19 @@
 
 // This routine returns the x of the id-th point of a 3D volume
 // of size Dim[0]xDim[1]xDim[2]
-int  GetX(unsigned long int id, int *Dim);
+int  GetX(vtkIdType id, int *Dim);
 
 // This routine returns the y of the id-th point of a 3D volume
 // of size Dim[0]xDim[1]xDim[2]
-int  GetY(unsigned long int id, int *Dim);
+int  GetY(vtkIdType id, int *Dim);
 
 // This routine returns the z of the id-th point of a 3D volume
 // of size Dim[0]xDim[1]xDim[2]
-int  GetZ(unsigned long int id, int *Dim);
+int  GetZ(vtkIdType id, int *Dim);
 
 // This routine returns the id of a point located at coordinate
 // (x,y,z) of a 3D volume of size Dim[0]xDim[1]xDim[2]
-unsigned long int GetId(int x, int y, int z, int *Dim);
+vtkIdType GetId(int x, int y, int z, int *Dim);
 
 // Get the reflected id of a point located at coordinate
 // (x,y,z) of a 3D volume of size Dim[0]xDim[1]xDim[2]. The
@@ -62,7 +62,7 @@ unsigned long int GetId(int x, int y, int z, int *Dim);
 // 3D volume. This routine is used to shift the Gaussian
 // derivatives to the corner of the volume before applying
 // the Fourier transform
-unsigned long int GetReflectedId(int x, int y, int z, int *Dim);
+vtkIdType GetReflectedId(int x, int y, int z, int *Dim);
 
 // Swap values
 void Swap(double *x, double *y);
@@ -143,27 +143,31 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
 // of a 3D volume and its eigenvalues (Discrete Approach)
 void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
 
+// Calculate the vesselness over a range of different scales
+int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf);
+
+
 /**========================================================
  Auxiliar functions
  =========================================================*/
 
-int GetX(unsigned long int id, int *Dim) {
-    return (int) id%Dim[0];
+int GetX(vtkIdType id, int *Dim) {
+    return (int) ( id % (vtkIdType)Dim[0] );
 }
 
-int GetY(unsigned long int id, int *Dim) {
-    return (int)(id%(Dim[0]*Dim[1]))/Dim[0];
+int GetY(vtkIdType id, int *Dim) {
+    return (int) (  ( id % (vtkIdType)(Dim[0]*Dim[1]) ) / (vtkIdType)Dim[0]  );
 }
 
-int GetZ(unsigned long int id, int *Dim) {
-    return (int) id/(Dim[0]*Dim[1]);
+int GetZ(vtkIdType id, int *Dim) {
+    return (int) ( id / (vtkIdType)(Dim[0]*Dim[1]) );
 }
 
-unsigned long int GetId(int x, int y, int z, int *Dim) {
-    return x+y*Dim[0]+z*Dim[0]*Dim[1];
+vtkIdType GetId(int x, int y, int z, int *Dim) {
+    return (vtkIdType)(x+y*Dim[0]+z*Dim[0]*Dim[1]);
 }
 
-unsigned long int GetReflectedId(int x, int y, int z, int *Dim) {
+vtkIdType GetReflectedId(int x, int y, int z, int *Dim) {
     int rx = ceil(0.5*Dim[0]);
     int ry = ceil(0.5*Dim[1]);
     int rz = ceil(0.5*Dim[2]);
@@ -176,6 +180,7 @@ unsigned long int GetReflectedId(int x, int y, int z, int *Dim) {
 void Swap(double *x, double *y) {
     double t = *y; *y = *x; *x = t;
 }
+
 void Sort(double *l1, double *l2, double *l3) {
     if (fabs(*l1) > fabs(*l2)) Swap(l1,l2);
     if (fabs(*l2) > fabs(*l3)) Swap(l2,l3);
@@ -263,7 +268,7 @@ vtkImageData *Convert16To8bit(vtkImageData *Image) {
         ScalarsChar -> SetNumberOfTuples(N);
         
         double x, y;
-        unsigned long int register id;
+        vtkIdType register id;
         for ( id = N; id--; ) {
             x = ScalarsShort -> GetTuple1(id);
             y = 255.0 * (x-range[0]) / (range[1]-range[0]);
@@ -297,7 +302,7 @@ vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image) {
     ScalarsShort -> SetNumberOfTuples(N);
         
     double x, y;
-    unsigned long int register id;
+    vtkIdType register id;
     for ( id = N; id--; ) {
         x = ScalarsDouble -> GetTuple1(id);
         y = 65535.0 * (x-range[0]) / (range[1]-range[0]);
@@ -338,7 +343,6 @@ vtkImageData *AddBorder(vtkImageData *ImageData) {
 
     double v;
     int x, y, z;
-    unsigned long int id;
     for (x=0;x<dx;x++) {
         for (y=0;y<Dim[1];y++) {
             for (z=0;z<Dim[2];z++) {
@@ -371,6 +375,7 @@ vtkImageData *AddBorder(vtkImageData *ImageData) {
         }
     }
    
+    vtkIdType id;
     for (id=0;id<N;id++) {
         v = OScalars -> GetTuple1(id);
         BScalars -> SetTuple1(GetId(dx+GetX(id,Dim),dy+GetY(id,Dim),dz+GetZ(id,Dim),NewDim),v);
@@ -395,7 +400,7 @@ vtkImageData *RemoveBorder(int *DimB, vtkDoubleArray *BScalars, int *DimO) {
     #endif
 
     double v;
-    unsigned long int id;
+    vtkIdType id;
     int dx = int(0.1*DimO[0]);
     int dy = int(0.1*DimO[1]);
     int dz = int(0.1*DimO[2]);
@@ -683,8 +688,7 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
     #endif
 
     int *Dim = Image -> GetDimensions();
-    unsigned long int id;
-    unsigned long int N = Image -> GetNumberOfPoints();
+    vtkIdType id, N = Image -> GetNumberOfPoints();
     double H[3][3], Eva[3], Eve[3][3], dxx, dyy, dzz, dxy, dxz, dyz, l1, l2, l3, frobnorm;
 
     #ifdef DEBUG
@@ -777,8 +781,7 @@ void GetVesselness(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDou
     double rbd = 2 * beta * beta;
     double rad = 2 * alpha * alpha;
     double l1, l2, l3, ra, ran, rb, rbn, st, stn, ft_old, ft_new;
-    unsigned long int id;
-    unsigned long int N = Image -> GetNumberOfPoints();
+    vtkIdType id, N = Image -> GetNumberOfPoints();
 
     //GetHessianEigenvaluesFourier(sigma,Image,L1,L2,L3);
     GetHessianEigenvaluesDiscrete(sigma,Image,L1,L2,L3);
@@ -818,9 +821,9 @@ void GetDivergentFilter(int *Dim, vtkDoubleArray *Scalars) {
         printf("Calculating Divergent Filter...\n");
     #endif
 
+    vtkIdType id;
     int register j, i;
     int x, y, z, s = 2;
-    unsigned long int id;
     double v, norm, V[6][3];
     int Dx[6] = {1,-1,0,0,0,0};
     int Dy[6] = {0,0,1,-1,0,0};
@@ -858,49 +861,17 @@ void GetDivergentFilter(int *Dim, vtkDoubleArray *Scalars) {
 }
 
 /* ================================================================
-   MAIN ROUTINE
+   MULTISCALE VESSELNESS
 =================================================================*/
 
 int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf) {     
 
-/* ================================================================
-   LOADING DATA
-=================================================================*/
-/*
-    int i;
-    char _prefix[64];
-    char _impath[128];
-    sprintf(_prefix,"_x");
-    sprintf(_impath,"");
-    double _sigmai = 1.00;
-    double _sigmaf = 1.50;
-    double _dsigma = 0.10;
-
-    // Collecting input parameters
-    for (i = 0; i < argc; i++) {
-        if (!strcmp(argv[i],"-path")) {
-            sprintf(_impath,"%s//",argv[i+1]);
-        }
-        if (!strcmp(argv[i],"-prefix")) {
-            sprintf(_prefix,"%s",argv[i+1]);
-        }
-        if (!strcmp(argv[i],"-scales")) {
-            _sigmai = atof(argv[i+1]);
-            _dsigma = atof(argv[i+2]);
-            _sigmaf = atof(argv[i+3]);
-        }
-    }
-    if (!strcmp(_prefix,"_x")) {
-        printf("Please, use -prefix [filename] to provide the file name.\n");
-        return -1;
-    }
-*/
     // Loading multi-paged TIFF file (Supported by VTK 6.2 and higher)
     char _fullpath[256];
     sprintf(_fullpath,"%s.tif",FileName);
     vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
     int errlog = TIFFReader -> CanReadFile(_fullpath);
-    // File cannot be openned
+    // File cannot be opened
     if (!errlog) {
         printf("File %s connot be opened.\n",_fullpath);
         return -1;
@@ -908,9 +879,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     TIFFReader -> SetFileName(_fullpath);
     TIFFReader -> Update();
 
-/* ================================================================
-   DATA CONVERSION
-=================================================================*/
+   //DATA CONVERSION
 
     int *Dim = TIFFReader -> GetOutput() -> GetDimensions();
 
@@ -927,13 +896,11 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     if (!Image) printf("Format not supported.\n");
 
-/* ================================================================
-   BORDER
-=================================================================*/
+    //BORDER
 
     //vtkImageData *Image = AddBorder(ImageO);
 
-    int N = Image -> GetNumberOfPoints();
+    vtkIdType id, N = Image -> GetNumberOfPoints();
 
     vtkSmartPointer<vtkDoubleArray> AUX1 = vtkSmartPointer<vtkDoubleArray>::New();
     vtkSmartPointer<vtkDoubleArray> AUX2 = vtkSmartPointer<vtkDoubleArray>::New();
@@ -946,12 +913,9 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     VSSS -> SetNumberOfTuples(N);
     VSSS -> FillComponent(0,0);
 
-    unsigned long int id;
     double sigma, vn, vo;
 
-/* ================================================================
-   MULTISCALE VESSELNESS
-=================================================================*/
+    //VESSELNESS
 
     for ( sigma = _sigmai; sigma <= _sigmaf; sigma += _dsigma ) {
         
@@ -970,15 +934,11 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     }
     VSSS -> Modified();
 
-/* ================================================================
-   DIVERGENT
-=================================================================*/
+    //DIVERGENT
 
     GetDivergentFilter(Dim,VSSS);
 
-/* ================================================================
-   BORDER
-=================================================================*/
+    //BORDER
 
     //int *DimO = ImageO -> GetDimensions();
     //vtkImageData *ImageEnhanced = RemoveBorder(Dim,VSSS,DimO);
@@ -990,27 +950,21 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
         Image -> Update();
     #endif
 
-
-/* ================================================================
-   SAVING IMAGEDATA
-=================================================================*/
-
+    //SAVING IMAGEDATA
 
     vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
 
-    vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
-    TIFFWriter -> SetFileName("Temp.tif");
-    TIFFWriter -> SetFileDimensionality(3);
-    TIFFWriter -> SetCompressionToNoCompression();
-    TIFFWriter -> SetInputData(NewImage);
-    TIFFWriter -> Write();
+    // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
+    // TIFFWriter -> SetFileName("Temp.tif");
+    // TIFFWriter -> SetFileDimensionality(3);
+    // TIFFWriter -> SetCompressionToNoCompression();
+    // TIFFWriter -> SetInputData(NewImage);
+    // TIFFWriter -> Write();
 
     sprintf(_fullpath,"%s_vesselness.vtk",FileName);
     SaveImageData(NewImage,_fullpath);
 
-/* ================================================================
-   CREATING SURFACE POLYDATA
-=================================================================*/
+    //CREATING SURFACE POLYDATA
 
     vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
     #if (VTK_MAJOR_VERSION==5)
@@ -1021,15 +975,17 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     Filter -> SetValue(1,0.16667);
     Filter -> Update();
 
-/* ================================================================
-   SAVING SURFACE
-=================================================================*/
+    //SAVING SURFACE
 
     sprintf(_fullpath,"%s_surface.vtk",FileName);
     SavePolyData(Filter->GetOutput(),_fullpath);
 
     return 0;
 }
+
+/* ================================================================
+   MAIN ROUTINE
+=================================================================*/
 
 int main(int argc, char *argv[]) {     
 
@@ -1057,10 +1013,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Generating list of files to run
     char _cmd[256];
     sprintf(_cmd,"ls %s*.tif | sed -e 's/\\..*$//' > %smitograph.files",_impath,_impath);
     system(_cmd);
 
+    // Multiscale vesselness
     char _tifffilename[256];
     char _tifflistpath[128];
     sprintf(_tifflistpath,"%smitograph.files",_impath);
