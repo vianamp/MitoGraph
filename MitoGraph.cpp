@@ -585,7 +585,9 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     for ( sigma = _sigmai; sigma <= _sigmaf; sigma += _dsigma ) {
         
-        printf("Sigma = %1.3f\n",sigma);
+        #ifdef DEBUG
+            printf("Running sigma = %1.3f\n",sigma);
+        #endif
         
         GetVesselness(sigma,Image,AUX1,AUX2,AUX3);
         
