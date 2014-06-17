@@ -56,14 +56,6 @@ int  GetZ(vtkIdType id, int *Dim);
 // (x,y,z) of a 3D volume of size Dim[0]xDim[1]xDim[2]
 vtkIdType GetId(int x, int y, int z, int *Dim);
 
-// Get the reflected id of a point located at coordinate
-// (x,y,z) of a 3D volume of size Dim[0]xDim[1]xDim[2]. The
-// reflection is made with respect to the center of the
-// 3D volume. This routine is used to shift the Gaussian
-// derivatives to the corner of the volume before applying
-// the Fourier transform
-vtkIdType GetReflectedId(int x, int y, int z, int *Dim);
-
 // Swap values
 void Swap(double *x, double *y);
 
@@ -74,34 +66,6 @@ void Sort(double *l1, double *l2, double *l3);
 // Calculate the Frobenius norm of a given 3x3 matrix
 // http://mathworld.wolfram.com/FrobeniusNorm.html
 double FrobeniusNorm(double M[3][3]);
-
-// This routine fills a 3D volume (Kernel) with the a derivative
-// of the gaussian function with variance sigma
-// Use:
-//      derivative = 1 for d2G/d2x
-//      derivative = 2 for d2G/d2y
-//      derivative = 3 for d2G/d2z
-//      derivative = 4 for d2G/dxdy
-//      derivative = 5 for d2G/dxdz
-//      derivative = 6 for d2G/dydz
-//      derivative = 0 for G (fills with the Gaussian function)
-void GetGaussianDerivativeKernel(int derivative, vtkImageData *Kernel, double sigma);
-
-// This routine uses the concept of scale space to calculate the
-// derivatives of a given 3D volume. The Fourier transform is
-// used to perform the convolution of the original image with
-// the Gaussian derivatives
-// ==============================================================
-// @@FIXME: Try to use the complex multiplication from VTK
-// ==============================================================
-void GetImageDerivativeFourier(int derivative, double sigma, vtkImageData *ImageData, vtkDoubleArray *D);
-
-// This routine calculate the Hessian matrix for each point
-// of a 3D volume and its eigenvalues (Fourier Tranform Approach)
-// ==============================================================
-// @@FIXME: Ths function is producing negative values of vesselness
-// ==============================================================
-void GetHessianEigenvaluesFourier(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
 
 // Calculate the vesselness at each point of a 3D volume based
 // based on the Hessian eigenvalues
@@ -123,17 +87,6 @@ vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image);
 
 // This routine saves a 3D polydata as VTK legacy file
 void SavePolyData(vtkPolyData *PolyData, const char FileName[]);
-
-// Given a 3D volume of size Dim[0]xDim[1]xDim[2], this routine
-// adds a periodic border of size 0.1Dim[i] to the i-th dimension
-// ==============================================================
-// @@FIXME: Note that the corners of the expanded volume are not
-// being filled
-// ==============================================================
-vtkImageData *AddBorder(vtkImageData *ImageData);
-
-// This routine removes the border added by the routine above.
-vtkImageData *RemoveBorder(int *DimB, vtkDoubleArray *BScalars, int *DimO);
 
 // This routine uses a discrete differential operator to
 // calculate the derivatives of a given 3D volume
@@ -315,290 +268,6 @@ vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image) {
 
 }
 
-
-/* ================================================================
-   BORDER ROUTINES
-=================================================================*/
-
-vtkImageData *AddBorder(vtkImageData *ImageData) {
-    #ifdef DEBUG
-        printf("Adding border...\n");
-    #endif
-
-    int *NewDim = new int[3];
-    int *Dim = ImageData -> GetDimensions();
-    int N = ImageData -> GetNumberOfPoints();
-    int dx = int(0.1*Dim[0]);
-    int dy = int(0.1*Dim[1]);
-    int dz = int(0.1*Dim[2]);
-    int Lx = Dim[0] + 2*dx; Lx = (Lx%2) ? Lx+1 : Lx;
-    int Ly = Dim[1] + 2*dy; Ly = (Ly%2) ? Ly+1 : Ly;
-    int Lz = Dim[2] + 2*dz; Lz = (Lz%2) ? Lz+1 : Lz;
-    NewDim[0] = Lx; NewDim[1] = Ly;  NewDim[2] = Lz;
-
-    vtkDataArray *OScalars = ImageData -> GetPointData() -> GetScalars();
-    vtkDoubleArray *BScalars = vtkDoubleArray::New();
-    BScalars -> SetNumberOfTuples(Lx*Ly*Lz);
-    BScalars -> FillComponent(0,0);
-
-    double v;
-    int x, y, z;
-    for (x=0;x<dx;x++) {
-        for (y=0;y<Dim[1];y++) {
-            for (z=0;z<Dim[2];z++) {
-                v = OScalars -> GetTuple1(GetId(x,y,z,Dim));
-                BScalars -> SetTuple1(GetId(x+dx+Dim[0],y+dy,z+dz,NewDim),v);
-                v = OScalars -> GetTuple1(GetId(Dim[0]-dx+x,y,z,Dim));
-                BScalars -> SetTuple1(GetId(x,y+dy,z+dz,NewDim),v);
-            }
-        }
-    }
-    for (x=0;x<Dim[0];x++) {
-        for (y=0;y<dy;y++) {
-            for (z=0;z<Dim[2];z++) {
-                v = OScalars -> GetTuple1(GetId(x,y,z,Dim));
-                BScalars -> SetTuple1(GetId(x+dx,y+dy+Dim[1],z+dz,NewDim),v);
-                v = OScalars -> GetTuple1(GetId(x,Dim[1]-dy+y,z,Dim));
-                BScalars -> SetTuple1(GetId(x+dx,y,z+dz,NewDim),v);
-            }
-        }
-    }
-    for (x=0;x<Dim[0];x++) {
-        for (y=0;y<Dim[1];y++) {
-            for (z=0;z<dz;z++) {
-                v = OScalars -> GetTuple1(GetId(x,y,z,Dim));
-                BScalars -> SetTuple1(GetId(x+dx,y+dy,z+dz+Dim[2],NewDim),v);
-                v = OScalars -> GetTuple1(GetId(x,y,Dim[2]-dz+z,Dim));
-                BScalars -> SetTuple1(GetId(x+dx,y+dy,z,NewDim),v);
-
-            }
-        }
-    }
-   
-    vtkIdType id;
-    for (id=0;id<N;id++) {
-        v = OScalars -> GetTuple1(id);
-        BScalars -> SetTuple1(GetId(dx+GetX(id,Dim),dy+GetY(id,Dim),dz+GetZ(id,Dim),NewDim),v);
-    }
-
-    BScalars -> Modified();
-
-    vtkImageData *ImageWBorder = vtkImageData::New();
-    ImageWBorder -> GetPointData() -> SetScalars(BScalars);
-    ImageWBorder -> SetDimensions(NewDim);
-
-    #ifdef DEBUG
-        printf("Border added!\n");
-    #endif
-
-    return ImageWBorder;
-}
-
-vtkImageData *RemoveBorder(int *DimB, vtkDoubleArray *BScalars, int *DimO) {
-    #ifdef DEBUG
-        printf("Removinf Border...\n");
-    #endif
-
-    double v;
-    vtkIdType id;
-    int dx = int(0.1*DimO[0]);
-    int dy = int(0.1*DimO[1]);
-    int dz = int(0.1*DimO[2]);
-    unsigned long int N = DimO[0]*DimO[1]*DimO[2];
-    vtkDoubleArray *OScalars = vtkDoubleArray::New();
-    OScalars -> SetNumberOfTuples(N);
-    for (id=0;id<N;id++) {
-        v = BScalars -> GetTuple1(GetId(dx+GetX(id,DimO),dy+GetY(id,DimO),dz+GetZ(id,DimO),DimB));
-        OScalars -> SetTuple1(id,v);
-    }
-    OScalars -> Modified();
-    
-    vtkImageData *Image = vtkImageData::New();
-    Image -> GetPointData() -> SetScalars(OScalars);
-    Image -> SetDimensions(DimO);
-    #if (VTK_MAJOR_VERSION==5)
-        Image -> Update();
-    #endif
-
-    #ifdef DEBUG
-        printf("Border Removed!\n");
-    #endif
-
-    return Image;
-}
-
-/* ================================================================
-   ROUTINES FOR FOURIER TRANSFORM APPROCH
-=================================================================*/
-
-void GetGaussianDerivativeKernel(int derivative, vtkImageData *Kernel, double sigma) {
-    #ifdef DEBUG
-        printf("Calculating Gaussian Derivatives (Fourier)...\n");
-    #endif
-
-    double x, y, z, d2, v;
-    double s2 = pow(sigma,2);
-    unsigned long int idr;
-    unsigned long int register id;
-    int *Dim = Kernel -> GetDimensions();
-    unsigned long int N = Kernel -> GetNumberOfPoints();
-    vtkDataArray *Values = Kernel -> GetPointData() -> GetScalars();
-    for ( id = 0; id < N; id++ ) {
-        x = GetX(id,Dim); y = GetY(id,Dim); z = GetZ(id,Dim);
-        idr = GetReflectedId(x,y,z,Dim);
-        x -= 0.5*Dim[0]; y -= 0.5*Dim[1]; z -= 0.5*Dim[2];
-        d2 = pow(x,2) + pow(y,2) + pow(z,2);
-        switch (derivative) {
-            case 1: v = (x*x-s2) / pow(sigma,2.5); break;
-            case 2: v = (y*y-s2) / pow(sigma,2.5); break;
-            case 3: v = (z*z-s2) / pow(sigma,2.5); break;
-            case 4: v = x*y / pow(sigma,4.0); break;
-            case 5: v = x*z / pow(sigma,4.0); break;
-            case 6: v = y*z / pow(sigma,4.0); break;
-            default:v = 1.0; break;
-        }
-        v *= exp(-0.5*d2/s2) / pow(2*3.1415*s2,1.5);
-        Values -> SetTuple1(idr,v*pow(sigma,0.25)); // Lindeberg Scaling Factor
-    }
-    Values -> Modified();
-}
-
-void GetImageDerivativeFourier(int derivative, double sigma, vtkImageData *ImageData, vtkDoubleArray *D) {
-    #ifdef DEBUG
-        printf("Calculating Image Derivatives (Fourier)...\n");
-    #endif
-
-    vtkSmartPointer<vtkImageCast> Cast = vtkSmartPointer<vtkImageCast>::New();
-    #if (VTK_MAJOR_VERSION==5)
-        Cast -> SetInput(ImageData);
-    #else
-        Cast -> SetInputData(ImageData);
-    #endif
-    Cast -> SetOutputScalarTypeToDouble();
-    Cast -> Update();
-
-    vtkImageData *Gauss = Cast -> GetOutput();
-    GetGaussianDerivativeKernel(derivative,Gauss,sigma); 
-
-    #ifdef DEBUG
-        printf("Calculating Fourier Transform...\n");
-    #endif
-
-    vtkSmartPointer<vtkImageFFT> FFTImage = vtkSmartPointer<vtkImageFFT>::New();
-    FFTImage -> SetDimensionality(3);
-    #if (VTK_MAJOR_VERSION==5)
-        FFTImage -> SetInput(ImageData);
-    #else
-        FFTImage -> SetInputData(ImageData);
-    #endif
-    FFTImage -> Update();    
-    vtkImageData *ImageF = FFTImage -> GetOutput();
-
-    vtkSmartPointer<vtkImageFFT> FFTGauss = vtkSmartPointer<vtkImageFFT>::New();
-    FFTGauss -> SetDimensionality(3);
-    #if (VTK_MAJOR_VERSION==5)
-        FFTGauss -> SetInput(Gauss);
-    #else
-        FFTGauss -> SetInputData(Gauss);
-    #endif
-    FFTGauss -> Update();    
-    vtkImageData *GaussF = FFTGauss -> GetOutput();
-
-    vtkSmartPointer<vtkImageData> Mult = vtkSmartPointer<vtkImageData>::New();
-    Mult -> DeepCopy(ImageF);
-
-    double re1, re2, im1, im2;
-    unsigned long int register id;
-
-    for (id=0;id<ImageF->GetNumberOfPoints();id++) {
-        re1 = ImageF -> GetPointData() -> GetScalars() -> GetComponent(id,0);
-        im1 = ImageF -> GetPointData() -> GetScalars() -> GetComponent(id,1);
-        re2 = GaussF -> GetPointData() -> GetScalars() -> GetComponent(id,0);
-        im2 = GaussF -> GetPointData() -> GetScalars() -> GetComponent(id,1);
-        Mult -> GetPointData() -> GetScalars() -> SetComponent(id,0,re1*re2-im1*im2);
-        Mult -> GetPointData() -> GetScalars() -> SetComponent(id,1,re1*im2+re2*im1);
-    }
-
-    vtkSmartPointer<vtkImageRFFT> RFFT = vtkSmartPointer<vtkImageRFFT>::New();
-    #if (VTK_MAJOR_VERSION==5)
-        RFFT -> SetInput(Mult);
-    #else
-        RFFT -> SetInputData(Mult);
-    #endif
-    RFFT -> Update();
-
-    vtkSmartPointer<vtkImageExtractComponents> real = vtkSmartPointer<vtkImageExtractComponents>::New();
-    #if (VTK_MAJOR_VERSION==5)
-        real -> SetInput(RFFT -> GetOutput());
-    #else
-        real -> SetInputData(RFFT -> GetOutput());
-    #endif
-    real -> SetComponents(0);
-    real -> Update();
-
-    D -> DeepCopy(real->GetOutput()->GetPointData()->GetScalars());
-    D -> Modified();
-    return;
-}
-
-void GetHessianEigenvaluesFourier(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3) {
-    #ifdef DEBUG
-        printf("Calculating Hessian Eigenvalues (Fourier)...\n");
-    #endif
-
-    unsigned long int id;
-    unsigned long int N = Image -> GetNumberOfPoints();
-    double H[3][3], Eva[3], Eve[3][3], dxx, dyy, dzz, dxy, dxz, dyz, l1, l2, l3, frobnorm;
-    vtkSmartPointer<vtkDoubleArray> Dxx = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> Dyy = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> Dzz = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> Dxy = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> Dxz = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> Dyz = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> Fro = vtkSmartPointer<vtkDoubleArray>::New();
-    Dxx -> SetNumberOfTuples(N);
-    Dyy -> SetNumberOfTuples(N);
-    Dzz -> SetNumberOfTuples(N);
-    Dxy -> SetNumberOfTuples(N);
-    Dxz -> SetNumberOfTuples(N);
-    Dyz -> SetNumberOfTuples(N);
-    Fro -> SetNumberOfTuples(N);
-    GetImageDerivativeFourier(1,sigma,Image,Dxx);
-    GetImageDerivativeFourier(2,sigma,Image,Dyy);
-    GetImageDerivativeFourier(3,sigma,Image,Dzz);
-    GetImageDerivativeFourier(4,sigma,Image,Dxy);
-    GetImageDerivativeFourier(5,sigma,Image,Dxz);
-    GetImageDerivativeFourier(6,sigma,Image,Dyz);
-    for ( id = N; id--; ) {
-        l1 = l2 = l3 = 0.0;
-        H[0][0]=Dxx->GetTuple1(id); H[0][1]=Dxy->GetTuple1(id); H[0][2]=Dxz->GetTuple1(id);
-        H[1][0]=Dxy->GetTuple1(id); H[1][1]=Dyy->GetTuple1(id); H[1][2]=Dyz->GetTuple1(id);
-        H[2][0]=Dxz->GetTuple1(id); H[2][1]=Dyz->GetTuple1(id); H[2][2]=Dzz->GetTuple1(id);
-        frobnorm = FrobeniusNorm(H);
-        if (H[0][0]+H[1][1]+H[2][2]<0.0) {
-            vtkMath::Diagonalize3x3(H,Eva,Eve);
-            l1 = Eva[0]; l2 = Eva[1]; l3 = Eva[2];
-            Sort(&l1,&l2,&l3);
-        }
-        L1 -> SetTuple1(id,l1);
-        L2 -> SetTuple1(id,l2);
-        L3 -> SetTuple1(id,l3);
-        Fro -> SetTuple1(id,frobnorm);
-    }
-    double ftresh,frobenius_norm_range[2];
-    Fro -> GetRange(frobenius_norm_range);
-    ftresh = sqrt(frobenius_norm_range[1]);
-    for ( id = N; id--; ) {
-        if ( Fro->GetTuple1(id) < ftresh) {
-            L1 -> SetTuple1(id,0.0);
-            L2 -> SetTuple1(id,0.0);
-            L3 -> SetTuple1(id,0.0);
-        }
-    }
-    L1 -> Modified();
-    L2 -> Modified();
-    L3 -> Modified();
-}
 
 /* ================================================================
    ROUTINES FOR DISCRETE APPROCH
@@ -783,7 +452,6 @@ void GetVesselness(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDou
     double l1, l2, l3, ra, ran, rb, rbn, st, stn, ft_old, ft_new;
     vtkIdType id, N = Image -> GetNumberOfPoints();
 
-    //GetHessianEigenvaluesFourier(sigma,Image,L1,L2,L3);
     GetHessianEigenvaluesDiscrete(sigma,Image,L1,L2,L3);
     
     for ( id = N; id--; ) {
@@ -879,7 +547,8 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     TIFFReader -> SetFileName(_fullpath);
     TIFFReader -> Update();
 
-   //DATA CONVERSION
+    //DATA CONVERSION
+    //---------------
 
     int *Dim = TIFFReader -> GetOutput() -> GetDimensions();
 
@@ -896,9 +565,8 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     if (!Image) printf("Format not supported.\n");
 
-    //BORDER
-
-    //vtkImageData *Image = AddBorder(ImageO);
+    //VESSELNESS
+    //----------
 
     vtkIdType id, N = Image -> GetNumberOfPoints();
 
@@ -914,8 +582,6 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     VSSS -> FillComponent(0,0);
 
     double sigma, vn, vo;
-
-    //VESSELNESS
 
     for ( sigma = _sigmai; sigma <= _sigmaf; sigma += _dsigma ) {
         
@@ -935,13 +601,9 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     VSSS -> Modified();
 
     //DIVERGENT
+    //---------
 
     GetDivergentFilter(Dim,VSSS);
-
-    //BORDER
-
-    //int *DimO = ImageO -> GetDimensions();
-    //vtkImageData *ImageEnhanced = RemoveBorder(Dim,VSSS,DimO);
 
     vtkImageData *ImageEnhanced = vtkImageData::New();
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
@@ -951,6 +613,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     #endif
 
     //SAVING IMAGEDATA
+    //----------------
 
     vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
 
@@ -965,6 +628,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     SaveImageData(NewImage,_fullpath);
 
     //CREATING SURFACE POLYDATA
+    //-------------------------
 
     vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
     #if (VTK_MAJOR_VERSION==5)
@@ -976,6 +640,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     Filter -> Update();
 
     //SAVING SURFACE
+    //--------------
 
     sprintf(_fullpath,"%s_surface.vtk",FileName);
     SavePolyData(Filter->GetOutput(),_fullpath);
