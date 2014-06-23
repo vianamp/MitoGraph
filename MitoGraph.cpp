@@ -194,7 +194,7 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
     #endif
 }
 
-void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary) {
+void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
 
     vtkDataArray *Volume = Image -> GetPointData() -> GetScalars();
 
@@ -216,11 +216,7 @@ void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary
                 v = Image -> GetScalarComponentAsFloat(x,y,z,0);
                 vproj = (v > vproj) ? v : vproj;
             }
-            if (binary && vproj > 0.16667) {
-                MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),255);
-            } else {
-                MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),vproj);
-            }
+            MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),vproj);
         }
     }
     MaxPArray -> Modified();
@@ -665,32 +661,6 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     vtkImageData *ImageEnhanced = vtkImageData::New();
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
     ImageEnhanced -> SetDimensions(Dim);
-<<<<<<< HEAD
-=======
-    #if (VTK_MAJOR_VERSION==5)    
-        Image -> Update();
-    #endif
-
-    //SAVING IMAGEDATA
-    //----------------
-
-    vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
-
-    sprintf(_fullpath,"%s_vess.tiff",FileName);
-    ExportMaxProjection(NewImage,_fullpath,true);
-
-    // Determine if the output should be 8 or 16 bits
-
-    // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
-    // TIFFWriter -> SetFileName("Temp.tif");
-    // TIFFWriter -> SetFileDimensionality(3);
-    // TIFFWriter -> SetCompressionToNoCompression();
-    // TIFFWriter -> SetInputData(NewImage);
-    // TIFFWriter -> Write();
-
-    sprintf(_fullpath,"%s_vesselness.vtk",FileName);
-    SaveImageData(NewImage,_fullpath);
->>>>>>> FETCH_HEAD
 
     //CREATING SURFACE POLYDATA
     //-------------------------
@@ -713,17 +683,13 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //SAVING BINARY IMAGEDATA
     //-----------------------
 
-    // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
-    // TIFFWriter -> SetFileName("Temp.tif");
-    // TIFFWriter -> SetFileDimensionality(3);
-    // TIFFWriter -> SetCompressionToNoCompression();
-    // TIFFWriter -> SetInputData(NewImage);
-    // TIFFWriter -> Write();
-
     vtkImageData *Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,0.166667);
 
     sprintf(_fullpath,"%s_binary.vtk",FileName);
     SaveImageData(Binary,_fullpath);
+
+    sprintf(_fullpath,"%s_binary_proj.tiff",FileName);
+    ExportMaxProjection(Binary,_fullpath);
 
     return 0;
 }
