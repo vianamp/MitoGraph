@@ -88,6 +88,10 @@ vtkImageData *BinarizeAndConvertDoubleTo16bit(vtkImageData *Image, double thresh
 // This routine saves a 3D polydata as VTK legacy file
 void SavePolyData(vtkPolyData *PolyData, const char FileName[]);
 
+// Export maximum projection of a given ImageData as a
+// TIFF file.
+void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary);
+
 // This routine uses a discrete differential operator to
 // calculate the derivatives of a given 3D volume
 void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, vtkFloatArray *Derivative);
@@ -188,6 +192,48 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
     #ifdef DEBUG
         printf("File Saved!\n");
     #endif
+}
+
+void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary) {
+
+    vtkDataArray *Volume = Image -> GetPointData() -> GetScalars();
+
+    int *Dim = Image -> GetDimensions();
+    vtkSmartPointer<vtkImageData> MaxP = vtkSmartPointer<vtkImageData>::New();
+    MaxP -> SetDimensions(Dim[0],Dim[1],1);
+    vtkIdType N = Dim[0] * Dim[1];
+
+    vtkSmartPointer<vtkUnsignedShortArray> MaxPArray = vtkSmartPointer<vtkUnsignedShortArray>::New();
+    MaxPArray -> SetNumberOfComponents(1);
+    MaxPArray -> SetNumberOfTuples(N);
+
+    int x, y, z;
+    double v, vproj;
+    for (x = 0; x < Dim[0]; x++) {
+        for (y = 0; y < Dim[1]; y++) {
+            vproj = 0;
+            for (z = 0; z < Dim[2]; z++) {
+                v = Image -> GetScalarComponentAsFloat(x,y,z,0);
+                vproj = (v > vproj) ? v : vproj;
+            }
+            if (binary && vproj > 0.16667) {
+                MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),255);
+            } else {
+                MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),vproj);
+            }
+        }
+    }
+    MaxPArray -> Modified();
+
+    MaxP -> GetPointData() -> SetScalars(MaxPArray);
+
+    vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
+    TIFFWriter -> SetFileName(FileName);
+    TIFFWriter -> SetFileDimensionality(2);
+    TIFFWriter -> SetCompressionToNoCompression();
+    TIFFWriter -> SetInputData(MaxP);
+    TIFFWriter -> Write();
+
 }
 
 /* ================================================================
@@ -619,6 +665,32 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     vtkImageData *ImageEnhanced = vtkImageData::New();
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
     ImageEnhanced -> SetDimensions(Dim);
+<<<<<<< HEAD
+=======
+    #if (VTK_MAJOR_VERSION==5)    
+        Image -> Update();
+    #endif
+
+    //SAVING IMAGEDATA
+    //----------------
+
+    vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
+
+    sprintf(_fullpath,"%s_vess.tiff",FileName);
+    ExportMaxProjection(NewImage,_fullpath,true);
+
+    // Determine if the output should be 8 or 16 bits
+
+    // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
+    // TIFFWriter -> SetFileName("Temp.tif");
+    // TIFFWriter -> SetFileDimensionality(3);
+    // TIFFWriter -> SetCompressionToNoCompression();
+    // TIFFWriter -> SetInputData(NewImage);
+    // TIFFWriter -> Write();
+
+    sprintf(_fullpath,"%s_vesselness.vtk",FileName);
+    SaveImageData(NewImage,_fullpath);
+>>>>>>> FETCH_HEAD
 
     //CREATING SURFACE POLYDATA
     //-------------------------
