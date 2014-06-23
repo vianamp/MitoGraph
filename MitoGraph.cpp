@@ -83,7 +83,7 @@ void SaveImageData(vtkImageData *Image);
 // in [0,255] (http://rsbweb.nih.gov/ij/docs/guide/146-28.html)
 vtkImageData *Convert16To8bit(vtkImageData *Image);
 
-vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image);
+vtkImageData *BinarizeAndConvertDoubleTo16bit(vtkImageData *Image, double threshold);
 
 // This routine saves a 3D polydata as VTK legacy file
 void SavePolyData(vtkPolyData *PolyData, const char FileName[]);
@@ -194,6 +194,16 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
    IMAGE TRANSFORM
 =================================================================*/
 
+void Binarize(vtkImageData *Image, double threshold) {
+    for ( vtkIdType id = Image->GetNumberOfPoints(); id--; ) {
+        if (Image -> GetPointData() -> GetScalars() -> GetTuple1(id) <= threshold) {
+            Image -> GetPointData() -> GetScalars() -> SetTuple1(id,0);
+        } else {
+            Image -> GetPointData() -> GetScalars() -> SetTuple1(id,255);
+        }
+    }
+}
+
 vtkImageData *Convert16To8bit(vtkImageData *Image) {
 
     // 8-Bit images
@@ -238,36 +248,35 @@ vtkImageData *Convert16To8bit(vtkImageData *Image) {
     }
 }
 
-vtkImageData *ConvertDoubleTo16bit(vtkImageData *Image) {
+vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double threshold) {
 
-    vtkImageData *Image16 = vtkImageData::New();
-    Image16 -> ShallowCopy(Image);
+    vtkImageData *Image8 = vtkImageData::New();
+    Image8 -> ShallowCopy(Image);
 
     vtkDataArray *ScalarsDouble = Image -> GetPointData() -> GetScalars();
     unsigned long int N = ScalarsDouble -> GetNumberOfTuples();
     double range[2];
     ScalarsDouble -> GetRange(range);
 
-    printf("Original intensities range: [%1.3f-%1.3f]\n",range[0],range[1]);
-
-    vtkSmartPointer<vtkUnsignedShortArray> ScalarsShort = vtkSmartPointer<vtkUnsignedShortArray>::New();
-    ScalarsShort -> SetNumberOfComponents(1);
-    ScalarsShort -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkUnsignedCharArray> ScalarsChar = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    ScalarsChar -> SetNumberOfComponents(1);
+    ScalarsChar -> SetNumberOfTuples(N);
         
-    double x, y;
-    vtkIdType register id;
-    for ( id = N; id--; ) {
+    double x;
+    for ( vtkIdType id = N; id--; ) {
         x = ScalarsDouble -> GetTuple1(id);
-        y = 65535.0 * (x-range[0]) / (range[1]-range[0]);
-            ScalarsShort -> SetTuple1(id,(unsigned short)y);
+        if (x<=threshold) {
+            ScalarsChar -> SetTuple1(id,0);
+        } else {
+            ScalarsChar -> SetTuple1(id,255);
+        }
     }
-    ScalarsShort -> Modified();
+    ScalarsChar -> Modified();
 
-    Image16 -> GetPointData() -> SetScalars(ScalarsShort);
-    return Image16;
+    Image8 -> GetPointData() -> SetScalars(ScalarsChar);
+    return Image8;
 
 }
-
 
 /* ================================================================
    ROUTINES FOR DISCRETE APPROCH
@@ -610,24 +619,6 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     vtkImageData *ImageEnhanced = vtkImageData::New();
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
     ImageEnhanced -> SetDimensions(Dim);
-    #if (VTK_MAJOR_VERSION==5)    
-        Image -> Update();
-    #endif
-
-    //SAVING IMAGEDATA
-    //----------------
-
-    vtkImageData *NewImage = ConvertDoubleTo16bit(ImageEnhanced);
-
-    // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
-    // TIFFWriter -> SetFileName("Temp.tif");
-    // TIFFWriter -> SetFileDimensionality(3);
-    // TIFFWriter -> SetCompressionToNoCompression();
-    // TIFFWriter -> SetInputData(NewImage);
-    // TIFFWriter -> Write();
-
-    sprintf(_fullpath,"%s_vesselness.vtk",FileName);
-    SaveImageData(NewImage,_fullpath);
 
     //CREATING SURFACE POLYDATA
     //-------------------------
@@ -646,6 +637,21 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     sprintf(_fullpath,"%s_surface.vtk",FileName);
     SavePolyData(Filter->GetOutput(),_fullpath);
+
+    //SAVING BINARY IMAGEDATA
+    //-----------------------
+
+    // vtkSmartPointer<vtkTIFFWriter> TIFFWriter = vtkSmartPointer<vtkTIFFWriter>::New();
+    // TIFFWriter -> SetFileName("Temp.tif");
+    // TIFFWriter -> SetFileDimensionality(3);
+    // TIFFWriter -> SetCompressionToNoCompression();
+    // TIFFWriter -> SetInputData(NewImage);
+    // TIFFWriter -> Write();
+
+    vtkImageData *Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,0.166667);
+
+    sprintf(_fullpath,"%s_binary.vtk",FileName);
+    SaveImageData(Binary,_fullpath);
 
     return 0;
 }
