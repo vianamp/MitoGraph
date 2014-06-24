@@ -34,7 +34,8 @@
 #include <vtkImageRFFT.h>
 #include <vtkImageCast.h>
 
-//#define DEBUG
+double _dxy, _dz = -1.0;
+bool _scale_polydata_before_save = true;
 
 // In order to acess the voxel (x,y,z) from ImageJ, I should use
 // GetId(x,(Dim[1]-1)-y,z,Dim);
@@ -103,7 +104,6 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
 // Calculate the vesselness over a range of different scales
 int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf);
 
-
 /**========================================================
  Auxiliar functions
  =========================================================*/
@@ -162,9 +162,10 @@ void SaveImageData(vtkImageData *Image, const char FileName[]) {
     #endif
 
     vtkSmartPointer<vtkStructuredPointsWriter> writer = vtkSmartPointer<vtkStructuredPointsWriter>::New();
-    writer->SetInputData(Image);
-    writer->SetFileName(FileName);
-    writer->Write();
+    writer -> SetFileType(VTK_BINARY);
+    writer -> SetInputData(Image);
+    writer -> SetFileName(FileName);
+    writer -> Write();
 
     #ifdef DEBUG
         printf("File Saved!\n");
@@ -172,14 +173,30 @@ void SaveImageData(vtkImageData *Image, const char FileName[]) {
 }
 
 void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
+
     #ifdef DEBUG
-        printf("Saving PolyData File...\n");
+        printf("Saving PolyData from XYZ list...\n");
     #endif
 
-    vtkSmartPointer<vtkPolyDataWriter> PolyDataWriter = vtkSmartPointer<vtkPolyDataWriter>::New();
-    PolyDataWriter -> SetInputData(PolyData);
-    PolyDataWriter -> SetFileName(FileName);
-    PolyDataWriter -> Write();
+    #ifdef DEBUG
+        printf("#Points in PolyData file: %llu.\n",(vtkIdType)PolyData->GetNumberOfPoints());
+    #endif
+
+    if (_scale_polydata_before_save) {
+        double r[3];
+        vtkPoints *Points = PolyData -> GetPoints();
+        for (vtkIdType id = 0; id < Points -> GetNumberOfPoints(); id++) {
+            Points -> GetPoint(id,r);
+            Points -> SetPoint(id,_dxy*r[0],_dxy*r[1],_dz*r[2]);
+        }
+        Points -> Modified();
+    }
+
+    vtkSmartPointer<vtkPolyDataWriter> Writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+    Writer -> SetFileType(VTK_BINARY);
+    Writer -> SetFileName(FileName);
+    Writer -> SetInputData(PolyData);
+    Writer -> Write();
 
     #ifdef DEBUG
         printf("File Saved!\n");
@@ -678,7 +695,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     sprintf(_fullpath,"%s_binary.vtk",FileName);
     SaveImageData(Binary,_fullpath);
 
-    sprintf(_fullpath,"%s_binary_proj.tiff",FileName);
+    sprintf(_fullpath,"max_proj_%s.tif",FileName);
     ExportMaxProjection(Binary,_fullpath);
 
     return 0;
@@ -707,11 +724,25 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-prefix")) {
             sprintf(_prefix,"%s",argv[i+1]);
         }
+        if (!strcmp(argv[i],"-xy")) {
+            _dxy = atof(argv[i+1]);
+        }
+        if (!strcmp(argv[i],"-z")) {
+            _dz = atof(argv[i+1]);
+        }
         if (!strcmp(argv[i],"-scales")) {
             _sigmai = atof(argv[i+1]);
             _dsigma = atof(argv[i+2]);
             _sigmaf = atof(argv[i+3]);
         }
+        if (!strcmp(argv[i],"-scale_off")) {
+            _scale_polydata_before_save = false;
+        }        
+    }
+
+    if (_dz<0) {
+        printf("Please, use -dxy and -dz to provide the pixel size.\n");
+        return -1;
     }
 
     // Generating list of files to run
