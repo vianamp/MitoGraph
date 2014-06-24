@@ -162,11 +162,7 @@ void SaveImageData(vtkImageData *Image, const char FileName[]) {
     #endif
 
     vtkSmartPointer<vtkStructuredPointsWriter> writer = vtkSmartPointer<vtkStructuredPointsWriter>::New();
-    #if (VTK_MAJOR_VERSION==5)
-        writer->SetInput(Image);
-    #else
-        writer->SetInputData(Image);
-    #endif
+    writer->SetInputData(Image);
     writer->SetFileName(FileName);
     writer->Write();
 
@@ -181,11 +177,7 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
     #endif
 
     vtkSmartPointer<vtkPolyDataWriter> PolyDataWriter = vtkSmartPointer<vtkPolyDataWriter>::New();
-    #if (VTK_MAJOR_VERSION==5)    
-        PolyDataWriter -> SetInput(PolyData);
-    #else
-        PolyDataWriter -> SetInputData(PolyData);
-    #endif
+    PolyDataWriter -> SetInputData(PolyData);
     PolyDataWriter -> SetFileName(FileName);
     PolyDataWriter -> Write();
 
@@ -196,7 +188,9 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
 
 void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
 
-    vtkDataArray *Volume = Image -> GetPointData() -> GetScalars();
+    #ifdef DEBUG
+        printf("Saving Max projection...\n");
+    #endif
 
     int *Dim = Image -> GetDimensions();
     vtkSmartPointer<vtkImageData> MaxP = vtkSmartPointer<vtkImageData>::New();
@@ -209,14 +203,14 @@ void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
 
     int x, y, z;
     double v, vproj;
-    for (x = 0; x < Dim[0]; x++) {
-        for (y = 0; y < Dim[1]; y++) {
+    for (x = Dim[0]; x--;) {
+        for (y = Dim[1]; y--;) {
             vproj = 0;
-            for (z = 0; z < Dim[2]; z++) {
+            for (z = Dim[2]; z--;) {
                 v = Image -> GetScalarComponentAsFloat(x,y,z,0);
                 vproj = (v > vproj) ? v : vproj;
             }
-            MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),vproj);
+            MaxPArray -> SetTuple1(MaxP->FindPoint(x,y,0),(unsigned short)vproj);
         }
     }
     MaxPArray -> Modified();
@@ -229,6 +223,10 @@ void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
     TIFFWriter -> SetCompressionToNoCompression();
     TIFFWriter -> SetInputData(MaxP);
     TIFFWriter -> Write();
+
+    #ifdef DEBUG
+        printf("File Saved!\n");
+    #endif
 
 }
 
@@ -416,11 +414,7 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
     #endif
 
     vtkSmartPointer<vtkImageGaussianSmooth> Gauss = vtkSmartPointer<vtkImageGaussianSmooth>::New();
-    #if (VTK_MAJOR_VERSION==5)
-        Gauss -> SetInput(Image);
-    #else
-        Gauss -> SetInputData(Image);
-    #endif
+    Gauss -> SetInputData(Image);
     Gauss -> SetDimensionality(3);
     Gauss -> SetRadiusFactors(10,10,10);
     Gauss -> SetStandardDeviations(sigma,sigma,sigma);
@@ -666,11 +660,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //-------------------------
 
     vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
-    #if (VTK_MAJOR_VERSION==5)
-        Filter -> SetInput(ImageEnhanced);
-    #else
-        Filter -> SetInputData(ImageEnhanced);
-    #endif
+    Filter -> SetInputData(ImageEnhanced);
     Filter -> SetValue(1,0.16667);
     Filter -> Update();
 
