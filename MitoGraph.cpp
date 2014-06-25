@@ -695,7 +695,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     sprintf(_fullpath,"%s_binary.vtk",FileName);
     SaveImageData(Binary,_fullpath);
 
-    sprintf(_fullpath,"max_proj_%s.tif",FileName);
+    sprintf(_fullpath,"%s_binary_proj.tif",FileName);
     ExportMaxProjection(Binary,_fullpath);
 
     return 0;
