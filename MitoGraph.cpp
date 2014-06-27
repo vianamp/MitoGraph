@@ -344,12 +344,12 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
         printf("Calculating Image Derivatives (Discrete)...\n");
     #endif
 
-    int i, j, k;
     double d, f1, f2;
+    vtkIdType i, j, k;
     if (direction=='x') {
-        for (i = dim[0]; i--;) {
-            for (j = dim[1]; j--;) {
-                for (k = dim[2]; k--;) {
+        for (i = (vtkIdType)dim[0]; i--;) {
+            for (j = (vtkIdType)dim[1]; j--;) {
+                for (k = (vtkIdType)dim[2]; k--;) {
                     if (i==0) {
                         Image -> GetTuple(GetId(1,j,k,dim),&f1);
                         Image -> GetTuple(GetId(0,j,k,dim),&f2);
@@ -369,10 +369,11 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
             }
         }
     }
+
     if (direction=='y') {
-        for (i = dim[0]; i--;) {
-            for (j = dim[1]; j--;) {
-                for (k = dim[2]; k--;) {
+        for (i = (vtkIdType)dim[0]; i--;) {
+            for (j = (vtkIdType)dim[1]; j--;) {
+                for (k = (vtkIdType)dim[2]; k--;) {
                     if (j==0) {
                         Image -> GetTuple(GetId(i,1,k,dim),&f1);
                         Image -> GetTuple(GetId(i,0,k,dim),&f2);
@@ -392,10 +393,11 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
             }
         }
     }
+
     if (direction=='z') {
-        for (i = dim[0]; i--;) {
-            for (j = dim[1]; j--;) {
-                for (k = dim[2]; k--;) {
+        for (i = (vtkIdType)dim[0]; i--;) {
+            for (j = (vtkIdType)dim[1]; j--;) {
+                for (k = (vtkIdType)dim[2]; k--;) {
                     if (k==0) {
                         Image -> GetTuple(GetId(i,j,1,dim),&f1);
                         Image -> GetTuple(GetId(i,j,0,dim),&f2);
@@ -415,6 +417,7 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
             }
         }
     }
+
 }
 
 void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3) {
@@ -747,7 +750,8 @@ int main(int argc, char *argv[]) {
 
     // Generating list of files to run
     char _cmd[256];
-    sprintf(_cmd,"ls %s*.tif | sed -e 's/\\..*$//' > %smitograph.files",_impath,_impath);
+    //sprintf(_cmd,"ls %s*.tif | sed -e 's/\\..*$//' > %smitograph.files",_impath,_impath);
+    sprintf(_cmd,"ls %s*.tif | sed -e 's/.tif//' > %smitograph.files",_impath,_impath);
     system(_cmd);
 
     // Multiscale vesselness
