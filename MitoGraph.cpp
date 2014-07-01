@@ -36,6 +36,7 @@
 
 double _dxy, _dz = -1.0;
 bool _scale_polydata_before_save = true;
+double _div_threshold = 0.1666667;
 
 // In order to acess the voxel (x,y,z) from ImageJ, I should use
 // GetId(x,(Dim[1]-1)-y,z,Dim);
@@ -623,6 +624,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     printf("File name: %s\n",_fullpath);
     printf("Volume dimensions: %dx%dx%d\n",Dim[0],Dim[1],Dim[2]);
     printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",_sigmai,_dsigma,_sigmaf);
+    printf("Threshold: %1.5f\n",_div_threshold);
     printf("======================================\n");
 
     // Conversion 16-bit to 8-bit
@@ -681,7 +683,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
     Filter -> SetInputData(ImageEnhanced);
-    Filter -> SetValue(1,0.16667);
+    Filter -> SetValue(1,_div_threshold);
     Filter -> Update();
 
     //SAVING SURFACE
@@ -693,7 +695,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //SAVING BINARY IMAGEDATA
     //-----------------------
 
-    vtkImageData *Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,0.166667);
+    vtkImageData *Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold);
 
     sprintf(_fullpath,"%s_binary.vtk",FileName);
     SaveImageData(Binary,_fullpath);
@@ -741,6 +743,9 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-scale_off")) {
             _scale_polydata_before_save = false;
         }        
+        if (!strcmp(argv[i],"-threshold")) {
+            _div_threshold = (double)atof(argv[i+1]);
+        }   
     }
 
     if (_dz<0) {
