@@ -668,7 +668,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //--------------
 
     sprintf(_fullpath,"%s_surface.vtk",FileName);
-    SavePolyData(Filter->GetOutput(),_fullpath,true);
+    SavePolyData(Filter->GetOutput(),_fullpath);
 
     //SAVING BINARY IMAGEDATA
     //-----------------------
