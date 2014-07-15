@@ -52,6 +52,10 @@
     bool _scale_polydata_before_save = true;
     bool _export_nodes_label = true;
     double _div_threshold = 0.1666667;
+    bool _improve_skeleton_quality = true; // when this is true nodes with degree zero
+                                           // expanded and detected. Additional checking
+                                           // is also done to garantee that all non-zero
+                                           // voxels were analysized.
 
 // In order to acess the voxel (x,y,z) from ImageJ, I should use
 // GetId(x,(Dim[1]-1)-y,z,Dim);
@@ -727,6 +731,9 @@ int main(int argc, char *argv[]) {
         }
         if (!strcmp(argv[i],"-labels_off")) {
             _export_nodes_label = false;
+        }
+        if (!strcmp(argv[i],"-precision_off")) {
+            _improve_skeleton_quality = false;
         }
     }
 

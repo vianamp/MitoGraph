@@ -72,6 +72,10 @@ vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkL
 // "value" in the vector "Volume".
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value);
 
+// Returns one neighbor of (x,y,z) with value different of
+// "value".
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, long int value);
+
 // Merge together junctions that touch each other.
 bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLongArray *Volume);
 
@@ -91,6 +95,11 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
 // with one edge C that corresponds to A + B. The degree of the
 // node is set to -1 and A and B are moreved from PolyData.
 bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K);
+
+// Lebel connected components in Image. Results are stored
+// in Volume as negative labels. The routine returns the total
+// number of connected components.
+long LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume);
 
 /* ================================================================
    I/O ROUTINES
@@ -505,25 +514,34 @@ char GetNumberOfNeighborsWithValue(vtkImageData *Image, vtkLongArray *Volume, in
 }
 
 vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value) {
-    vtkIdType idk = 0; // We can do it because, by construction the voxel at id 0 should always be empty
+    vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
         if (Volume -> GetTuple1(idk) == value) {
             return idk;
         }
     }
-    return 0;
+    return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value) {
-    vtkIdType idk = 0; // We can do it because by construction, the voxel at id 0 should always be empty
+    vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
         if (Volume -> GetTuple1(idk) && Volume -> GetTuple1(idk) != value) {
             return idk;
         }
     }
-    return 0;
+    return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
+}
+
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, long int value) {
+    vtkIdType idk;
+    for (char k = 26; k--;) {
+        idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        if (Image->GetScalarComponentAsDouble(x+ssdx[k],y+ssdy[k],z+ssdz[k],0)!=value) return idk;
+    }
+    return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
 bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLongArray *Volume) {
@@ -590,22 +608,83 @@ long int GetOneAdjacentEdge(vtkPolyData *PolyData, long int edge_label, long int
 
 int Skeletonization(vtkImageData *Image, const char FileName[], double *attributes) {
 
-    #ifdef DEBUG
-        printf("Starting skeletonization process...\n");
-    #endif
-
     double r[3];
     int x, y, z;
     vtkIdType id;
     long int junction_label = 1;
     vtkIdType N = Image -> GetNumberOfPoints();
+ 
+    if (_improve_skeleton_quality) {
 
-    std::list<vtkIdType> Junctions;
-    std::list<vtkIdType>::iterator itId;
+        #ifdef DEBUG
+            printf("Improving skeletonization [step 1: isolated single and pair of voxels]\n");
+        #endif
+
+        char nn;
+        double rn[3];
+        vtkIdType idn;
+        int xn, yn, zn;
+        for (id = N; id--;) {
+            Image -> GetPoint(id,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            if (Image->GetScalarComponentAsDouble(x,y,z,0)) {
+                nn = GetNumberOfNeighborsWithoutValue(Image,x,y,z,0);
+                if (nn==0) {
+                    // Expanding isolated voxel
+                    Image -> SetScalarComponentFromDouble(x+1,y,z,0,255);
+                    Image -> SetScalarComponentFromDouble(x-1,y,z,0,255);
+                } else if (nn==1) {
+                    idn = GetOneNeighborWithoutValue(x,y,z,Image,0);
+                    Image -> GetPoint(idn,rn);
+                    xn = (int)rn[0]; yn = (int)rn[1]; zn = (int)rn[2];
+                    if (GetNumberOfNeighborsWithoutValue(Image,xn,yn,zn,0)==1) {
+                        // Expanding isolated pair of voxels
+                        Image -> SetScalarComponentFromDouble(x-(int)(rn[0]-r[0]),y-(int)(rn[1]-r[1]),z-(int)(rn[2]-r[2]),0,255);
+                        Image -> SetScalarComponentFromDouble(xn+(int)(rn[0]-r[0]),yn+(int)(rn[1]-r[1]),zn+(int)(rn[2]-r[2]),0,255);
+                    }                    
+                }
+            }
+        }
+    }
 
     vtkSmartPointer<vtkLongArray> Volume = vtkSmartPointer<vtkLongArray>::New();
     Volume -> SetNumberOfComponents(0);
     Volume -> SetNumberOfTuples(N);
+
+    if (_improve_skeleton_quality) {
+        #ifdef DEBUG
+            printf("Improving skeletonization [step 2: verifying connected components]\n");
+        #endif
+        long int cc, ncc = LabelConnectedComponents(Image,Volume);
+        long int cc_min = 10; long int cc_max = -10;
+        bool *HasJunction = new bool[ncc];
+        for (cc = ncc; cc--;) HasJunction[cc] = false;
+        for (id = N; id--;) {
+            Image -> GetPoint(id,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            cc = (long int)Volume -> GetTuple1(id);
+            cc_min = (cc<cc_min) ? cc : cc_min;
+            cc_max = (cc>cc_max) ? cc : cc_max;
+            if (cc) {
+                if (GetNumberOfNeighborsWithoutValue(Image,Volume,x,y,z,cc) != 2) {
+                    HasJunction[1+cc] = true;
+                }
+            }
+        }
+        printf("cc_min = %ld, cc_max = %ld\n",cc_min,cc_max);
+        for (cc = ncc; cc--;) {
+            if (!HasJunction[cc]) printf("\tIsolated component without junction has been found: %ld\n",cc);
+        }
+
+    }
+
+    #ifdef DEBUG
+        printf("Starting skeletonization process...\n");
+    #endif
+
+    std::list<vtkIdType> Junctions;
+    std::list<vtkIdType>::iterator itId;
+
     for (id = N; id--;) {
         if (Image -> GetPointData() -> GetScalars() -> GetTuple1(id)) {
             Volume -> SetTuple1(id,-1);
@@ -638,13 +717,8 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     #endif
 
     // MERGING: During the merging process, voxels belonging to
-    // the same junction are merger together forming nodes.
+    // the same junction are merged together forming nodes.
     while (JunctionsMerge(Junctions,Image,Volume));
-
-    vtkIdType NumberOfVoxelsOnEdges = 0;
-    for (id = N; id--;) {
-        if (Volume->GetTuple1(id)==-1) NumberOfVoxelsOnEdges++;
-    }
 
     // Listing all nodes label we have until this point
     std::list<long int> Labels;
@@ -734,7 +808,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
             // @@PARAMETER: Minimum loop length (in voxels)
             if (!target_node) {
                 target_node = source_node;
-                if (Edge.size()<3) _should_add = false;
+                if (Edge.size() < 3) _should_add = false;
             }
 
             if (_should_add) {
@@ -926,3 +1000,83 @@ bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K) {
     }
     return false;
 }
+
+long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume) {
+
+    #ifdef DEBUG
+        printf("\tCalculating connected components...\n");
+    #endif
+
+    vtkIdType N = ImageData -> GetNumberOfPoints();
+    int *Dim = ImageData -> GetDimensions();
+
+    vtkIdType i, s, ido, id;
+
+    int x, y, z;
+    double v, r[3];
+    bool find = true;
+    long long int ro[3];
+    long int scluster, label;
+    ro[0] = Dim[0] * Dim[1] * Dim[2];
+    ro[1] = Dim[0] * Dim[1];
+
+    vtkSmartPointer<vtkIdList> CurrA = vtkSmartPointer<vtkIdList>::New();
+    vtkSmartPointer<vtkIdList> NextA = vtkSmartPointer<vtkIdList>::New();
+    vtkSmartPointer<vtkLongArray> CSz = vtkSmartPointer<vtkLongArray>::New();
+
+    Volume -> CopyComponent(0,ImageData->GetPointData()->GetScalars(),0);
+    Volume -> Modified();
+
+    label = 0;
+    while (find) {
+        for (s = 0; s < CurrA->GetNumberOfIds(); s++) {
+            ido = CurrA -> GetId(s);
+            ImageData -> GetPoint(ido,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            for (i=26; i--;) {
+                id = ImageData -> FindPoint(x+ssdx[i],y+ssdy[i],z+ssdz[i]);
+                v = Volume -> GetTuple1(id);
+                if ((long int)v > 0) {
+                    NextA -> InsertNextId(id);
+                    Volume -> SetTuple1(id,-label);
+                    scluster++;
+                }
+            }
+        }
+        if (!NextA->GetNumberOfIds()) {
+            find = false;
+            for (i=ro[0]; i--;) {
+                z = (int)(i / ro[1]);
+                y = (int)((i - (long long int)z * ro[1]) / ((long long int)Dim[0]));
+                x = (int)(i - (long long )z * ro[1] - (long long int)y * Dim[0]);
+                id = ImageData -> FindPoint(x,y,z);
+                v = Volume -> GetTuple1(id);
+                if ((long int)v > 0) {
+                    find = true;
+                    ro[0] = i;
+                    break;
+                }
+            }
+            if (label) {
+                CSz -> InsertNextTuple1(scluster);
+            }
+            if (find) {
+                label++;
+                scluster = 1;
+                Volume -> SetTuple1(id,-label);
+                CurrA -> InsertNextId(id);
+            }
+        } else {
+            CurrA -> Reset();
+            CurrA -> DeepCopy(NextA);
+            NextA -> Reset();
+        }
+    }
+
+    #ifdef DEBUG
+        printf("\tNumber of detected components: %ld\n",(long int)CSz->GetNumberOfTuples());
+    #endif
+
+    return (long int)CSz->GetNumberOfTuples();
+}
+
