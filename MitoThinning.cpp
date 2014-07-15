@@ -96,7 +96,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
 // node is set to -1 and A and B are moreved from PolyData.
 bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K);
 
-// Lebel connected components in Image. Results are stored
+// Label connected components in Image. Results are stored
 // in Volume as negative labels. The routine returns the total
 // number of connected components.
 long LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume);
@@ -613,7 +613,12 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     vtkIdType id;
     long int junction_label = 1;
     vtkIdType N = Image -> GetNumberOfPoints();
- 
+    std::list<vtkIdType> Junctions;
+    std::list<vtkIdType>::iterator itId;
+
+    // Inside this IF statement, isolated voxels and isolated pairs of voxels
+    // are expanded. If this is not done, these voxels will not be detected.
+    // This requires O(N).
     if (_improve_skeleton_quality) {
 
         #ifdef DEBUG
@@ -651,48 +656,64 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     Volume -> SetNumberOfComponents(0);
     Volume -> SetNumberOfTuples(N);
 
+    // Inside this IF statement, we label all connected components
+    // and we search for those cc that don't have junctions. If any
+    // is found, we force it to have a junction by adding its first
+    // voxel to the list Junctions. This fixes the problem of not
+    // detecting loop-shaped ccs.
     if (_improve_skeleton_quality) {
         #ifdef DEBUG
             printf("Improving skeletonization [step 2: verifying connected components]\n");
         #endif
         long int cc, ncc = LabelConnectedComponents(Image,Volume);
-        long int cc_min = 10; long int cc_max = -10;
         bool *HasJunction = new bool[ncc];
-        for (cc = ncc; cc--;) HasJunction[cc] = false;
+        for (cc = ncc; cc--;) HasJunction[cc] = 0;
         for (id = N; id--;) {
             Image -> GetPoint(id,r);
             x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
             cc = (long int)Volume -> GetTuple1(id);
-            cc_min = (cc<cc_min) ? cc : cc_min;
-            cc_max = (cc>cc_max) ? cc : cc_max;
             if (cc) {
-                if (GetNumberOfNeighborsWithoutValue(Image,Volume,x,y,z,cc) != 2) {
-                    HasJunction[1+cc] = true;
+                if (GetNumberOfNeighborsWithValue(Image,Volume,x,y,z,cc) != 2) {
+                    HasJunction[(unsigned long int)(-cc-1)] = true;
                 }
             }
         }
-        printf("cc_min = %ld, cc_max = %ld\n",cc_min,cc_max);
-        for (cc = ncc; cc--;) {
-            if (!HasJunction[cc]) printf("\tIsolated component without junction has been found: %ld\n",cc);
+        for (id = N; id--;) {
+            Image -> GetPoint(id,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            cc = (long int)Volume -> GetTuple1(id);
+            if (cc) {
+                if (!HasJunction[(unsigned long int)(-cc-1)]) {
+                    HasJunction[(unsigned long int)(-cc-1)] = true;
+                    Junctions.insert(Junctions.begin(),id);
+                    Volume -> SetTuple1(id,junction_label);
+                    junction_label++;
+                } else {
+                    Volume -> SetTuple1(id,-1);
+                }
+            } else {
+                Volume -> SetTuple1(id,0);
+            }
         }
+        delete[] HasJunction;            
+
+    } else {
+
+        for (id = N; id--;) {
+            if (Image -> GetPointData() -> GetScalars() -> GetTuple1(id)) {
+                Volume -> SetTuple1(id,-1);
+            } else {
+                Volume -> SetTuple1(id,0);
+            }
+        }
+        Volume -> Modified();
 
     }
 
     #ifdef DEBUG
-        printf("Starting skeletonization process...\n");
+        printf("Starting skeletonization...\n");
+        printf("\tSearching for junctions...\n");
     #endif
-
-    std::list<vtkIdType> Junctions;
-    std::list<vtkIdType>::iterator itId;
-
-    for (id = N; id--;) {
-        if (Image -> GetPointData() -> GetScalars() -> GetTuple1(id)) {
-            Volume -> SetTuple1(id,-1);
-        } else {
-            Volume -> SetTuple1(id,0);
-        }
-    }
-    Volume -> Modified();
 
     for (id = N; id--;) {
         Image -> GetPoint(id,r);
