@@ -12,6 +12,14 @@
     int ssdz[26] = { 1, 1, 1, 0, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0, 0,-1,-1,-1};
 
 
+    //               |------06------|
+    //               |------------------------18------------------------|
+    //               |---------------------------------------26----------------------------------|
+    int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
+    int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
+    int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
+
+
 // Routine used to save .gnet and .coo files representing
 // the skeleton of the mitochondrial network.
 void ExportGraphFiles(vtkPolyData *PolyData, long int nnodes, const char Prefix[]);
@@ -387,7 +395,10 @@ double GetEdgeLength(vtkIdType edge, vtkPolyData *PolyData) {
 int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
-        printf("Loading ImageData file...\n");
+        char _imbinary[256];
+        sprintf(_imbinary,"%s_binary.vtk",FileName);
+        SaveImageData(ImageData,_imbinary);
+        printf("Clearing image boundaries...\n");
     #endif
 
     vtkIdType N = ImageData -> GetNumberOfPoints();
@@ -431,7 +442,7 @@ int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attribute
                 x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
                 v = ImageData -> GetScalarComponentAsDouble(x,y,z,0);
                 if (v) {
-                    for (i = 0; i < 26; i++) {
+                    for (i = 26; i--;) {
                         vl = ImageData -> GetScalarComponentAsDouble(x+ssdx[i],y+ssdy[i],z+ssdz[i],0);
                         Vol[1+ssdx[i]][1+ssdy[i]][1+ssdz[i]] = (vl) ? 1 : 0;
                     }
@@ -608,6 +619,12 @@ long int GetOneAdjacentEdge(vtkPolyData *PolyData, long int edge_label, long int
 
 int Skeletonization(vtkImageData *Image, const char FileName[], double *attributes) {
 
+    #ifdef DEBUG
+        char _imthinn[256];
+        sprintf(_imthinn,"%s_thinned.vtk",FileName);
+        SaveImageData(Image,_imthinn);
+    #endif
+
     double r[3];
     int x, y, z;
     vtkIdType id;
@@ -665,7 +682,9 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
         #ifdef DEBUG
             printf("Improving skeletonization [step 2: verifying connected components]\n");
         #endif
+        long int n_fixed = 0;
         long int cc, ncc = LabelConnectedComponents(Image,Volume);
+
         bool *HasJunction = new bool[ncc];
         for (cc = ncc; cc--;) HasJunction[cc] = 0;
         for (id = N; id--;) {
@@ -677,6 +696,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
                     HasJunction[(unsigned long int)(-cc-1)] = true;
                 }
             }
+            Image -> SetScalarComponentFromDouble(x,y,z,0,-cc);
         }
         for (id = N; id--;) {
             Image -> GetPoint(id,r);
@@ -688,6 +708,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
                     Junctions.insert(Junctions.begin(),id);
                     Volume -> SetTuple1(id,junction_label);
                     junction_label++;
+                    n_fixed++;
                 } else {
                     Volume -> SetTuple1(id,-1);
                 }
@@ -695,7 +716,13 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
                 Volume -> SetTuple1(id,0);
             }
         }
-        delete[] HasJunction;            
+        delete[] HasJunction;
+
+        #ifdef DEBUG
+            printf("\t#Components fixed = %ld\n",n_fixed);
+        #endif
+
+        Image -> GetPointData() -> GetScalars() -> Modified();
 
     } else {
 
@@ -1028,7 +1055,6 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
         printf("\tCalculating connected components...\n");
     #endif
 
-    vtkIdType N = ImageData -> GetNumberOfPoints();
     int *Dim = ImageData -> GetDimensions();
 
     vtkIdType i, s, ido, id;
@@ -1066,15 +1092,11 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
         }
         if (!NextA->GetNumberOfIds()) {
             find = false;
-            for (i=ro[0]; i--;) {
-                z = (int)(i / ro[1]);
-                y = (int)((i - (long long int)z * ro[1]) / ((long long int)Dim[0]));
-                x = (int)(i - (long long )z * ro[1] - (long long int)y * Dim[0]);
-                id = ImageData -> FindPoint(x,y,z);
+            for (id=ro[0]; id--;) {
                 v = Volume -> GetTuple1(id);
                 if ((long int)v > 0) {
                     find = true;
-                    ro[0] = i;
+                    ro[0] = id;
                     break;
                 }
             }
@@ -1100,4 +1122,3 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
 
     return (long int)CSz->GetNumberOfTuples();
 }
-

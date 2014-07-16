@@ -106,6 +106,9 @@ vtkImageData *Convert16To8bit(vtkImageData *Image);
 // a 8-bit ImageData.
 vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double threshold);
 
+// Fill holes in the 3D image
+void FillHoles(vtkImageData *ImageData);
+
 /* ================================================================
    I/O ROUTINES
 =================================================================*/
@@ -318,6 +321,108 @@ vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double thresho
     return Image8;
 
 }
+
+void FillHoles(vtkImageData *ImageData) {
+
+    #ifdef DEBUG
+        printf("\tSearching for holes in the image...\n");
+    #endif
+
+    int ssdx_6[6] = { 0,-1, 0, 1, 0, 0};
+    int ssdy_6[6] = { 0, 0,-1, 0, 1, 0};
+    int ssdz_6[6] = {-1, 0, 0, 0, 0, 1};
+
+    int *Dim = ImageData -> GetDimensions();
+    vtkIdType N = ImageData -> GetNumberOfPoints();
+
+    vtkIdType i, s, ido, id;
+
+    int x, y, z;
+    double v, r[3];
+    bool find = true;
+    long long int ro[3];
+    long int scluster, label;
+    ro[0] = Dim[0] * Dim[1] * Dim[2];
+    ro[1] = Dim[0] * Dim[1];
+
+    vtkSmartPointer<vtkIdList> CurrA = vtkSmartPointer<vtkIdList>::New();
+    vtkSmartPointer<vtkIdList> NextA = vtkSmartPointer<vtkIdList>::New();
+    vtkSmartPointer<vtkLongArray> CSz = vtkSmartPointer<vtkLongArray>::New();
+    vtkSmartPointer<vtkLongArray> Volume = vtkSmartPointer<vtkLongArray>::New();
+    Volume -> SetNumberOfComponents(1);
+    Volume -> SetNumberOfTuples(N);
+    Volume -> FillComponent(0,0);
+
+    for (x = 1; x < Dim[0]-1; x++) {
+        for (y = 1; y < Dim[1]-1; y++) {
+            for (z = 1; z < Dim[2]-1; z++) {
+                id = ImageData -> FindPoint(x,y,z);
+                if ((unsigned short int)ImageData->GetScalarComponentAsDouble(x,y,z,0)) {
+                    Volume -> SetTuple1(id,0);
+                } else {
+                    Volume -> SetTuple1(id,1);
+                }
+            }
+        }
+    }
+
+    Volume -> Modified();
+
+    label = 0;
+    while (find) {
+        for (s = 0; s < CurrA->GetNumberOfIds(); s++) {
+            ido = CurrA -> GetId(s);
+            ImageData -> GetPoint(ido,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            for (i = 0; i < 6; i++) {
+                id = ImageData -> FindPoint(x+ssdx_6[i],y+ssdy_6[i],z+ssdz_6[i]);
+                v = Volume -> GetTuple1(id);
+                if ((long int)v > 0) {
+                    NextA -> InsertNextId(id);
+                    Volume -> SetTuple1(id,-label);
+                    scluster++;
+                }
+            }
+        }
+        if (!NextA->GetNumberOfIds()) {
+            find = false;
+            for (id=ro[0]; id--;) {
+                v = Volume -> GetTuple1(id);
+                if ((long int)v > 0) {
+                    find = true;
+                    ro[0] = id;
+                    break;
+                }
+            }
+            if (label) {
+                CSz -> InsertNextTuple1(scluster);
+            }
+            if (find) {
+                label++;
+                scluster = 1;
+                Volume -> SetTuple1(id,-label);
+                CurrA -> InsertNextId(id);
+            }
+        } else {
+            CurrA -> Reset();
+            CurrA -> DeepCopy(NextA);
+            NextA -> Reset();
+        }
+    }
+
+    for (id = N; id--;) {
+        if ((long int)Volume->GetTuple1(id)<-1) {
+            ImageData -> GetPointData() -> GetScalars() -> SetTuple1(id,255);
+        }
+    }
+    ImageData -> GetPointData() -> GetScalars() -> Modified();
+
+    #ifdef DEBUG
+        printf("\tNumber of filled holes: %ld\n",(long int)CSz->GetNumberOfTuples()-1);
+    #endif
+
+}
+
 
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
@@ -674,13 +779,23 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     sprintf(_fullpath,"%s_surface.vtk",FileName);
     SavePolyData(Filter->GetOutput(),_fullpath);
 
-    //SAVING BINARY IMAGEDATA
-    //-----------------------
+    //BINARIZATION
+    //------------
 
     vtkImageData *Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold);
 
+    //FILLING HOLES
+    //-------------
+    if (_improve_skeleton_quality) FillHoles(Binary);
+
+    //MAX PROJECTION
+    //--------------
+
     sprintf(_fullpath,"%s.png",FileName);
     ExportMaxProjection(Binary,_fullpath);
+
+    //SKELETONIZATION
+    //---------------
 
     Thinning3D(Binary,FileName,attributes);
 
