@@ -879,6 +879,7 @@ int main(int argc, char *argv[]) {
     time_t now = time(0);
     fprintf(fsummary,"%s\n",ctime(&now));
     fprintf(fsummary,"Image path\tsurface-volume (um3)\ttotal length (um)\tskeleton-volume (um3)\n");
+    fclose(fsummary);
 
     // Multiscale vesselness
     char _tifffilename[256];
@@ -891,13 +892,13 @@ int main(int argc, char *argv[]) {
         MultiscaleVesselness(_tifffilename,_sigmai,_dsigma,_sigmaf,attibutes);
         
         // Saving network attributes in the group file
+        fsummary = fopen(_summaryfilename,"a");
         fprintf(fsummary,"%s\t%1.5f\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[1],attibutes[2]);
+        fclose(fsummary);
 
         // Also printing on the screen
         printf("%s\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[2]);
 
     }
     fclose(f);
-    fclose(fsummary);
-
 }

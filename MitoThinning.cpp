@@ -181,7 +181,7 @@ void ExportGraphFiles(vtkPolyData *PolyData, long int nnodes, long int *ValidId,
     for (node = 0; node < nnodes; node++) {
         if (ValidId[node]>=0) {
             Points -> GetPoint(node,r);
-            fprintf(fcoo,"%1.4f\t%1.4f\t%1.4f\n",r[0],r[1],r[2]);
+            fprintf(fcoo,"%1.4f\t%1.4f\t%1.4f\n",_dxy*r[0],_dxy*r[1],_dz*r[2]);
         }
     }
     fclose(fcoo);
