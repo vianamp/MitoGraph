@@ -1,8 +1,10 @@
-// ==============================================================
-// MitoThinning: This routine loads an ImageData binary volume
-// and apply a thinning process over it, resulting in a new but
-// topologically equivalent image.
-// ==============================================================
+// =====================================================================================================
+// MitoThinning: This routine receives as input an ImageData binary from MitoGraph main routine a and
+// apply a thinning process over it, resulting in a new but topologically equivalent image.
+//
+// Matheus P. Viana - vianamp@gmail.com - 2014.06.10
+// Susanne Rafelski Lab, University of California Irvine
+// =====================================================================================================
 
 #include "ssThinning.h"
 #include "MitoThinning.h"

@@ -1,8 +1,20 @@
 // ==============================================================
-// MitoGraph: Quantifying Mitochondrial Content in Live Cells
-// Developed by Matheus P. Viana - vianamp@gmail.com - 2014.05.28
+// MitoGraph: Quantifying Mitochondrial Content in Living Cells
+// Written by Matheus P. Viana - vianamp@gmail.com - 2014.05.28
+//
 // Susanne Rafelski Lab, University of California Irvine
-// Please, check the documentation at ?
+//
+// The official documentation will be soon available at
+//
+//      The official software website
+//      - https://github.com/vianamp/MitoGraph
+//
+//      or
+//
+//      - http://www.rafelski.com/susanne/Home.html
+//
+// A protocol paper describing how to use MitoGraph is also
+// coming soon.
 // ==============================================================
 
 #include <list>
