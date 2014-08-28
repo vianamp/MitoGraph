@@ -1,8 +1,10 @@
-// ==============================================================
-// MitoThinning: This routine loads an ImageData binary volume
-// and apply a thinning process over it, resulting in a new but
-// topologically equivalent image.
-// ==============================================================
+// =====================================================================================================
+// MitoThinning: This routine receives as input an ImageData binary from MitoGraph main routine a and
+// apply a thinning process over it, resulting in a new but topologically equivalent image.
+//
+// Matheus P. Viana - vianamp@gmail.com - 2014.06.10
+// Susanne Rafelski Lab, University of California Irvine
+// =====================================================================================================
 
 #include "ssThinning.h"
 #include "MitoThinning.h"
@@ -10,6 +12,14 @@
     int ssdx[26] = {-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1};
     int ssdy[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     int ssdz[26] = { 1, 1, 1, 0, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0, 0,-1,-1,-1};
+
+
+    //               |------06------|
+    //               |------------------------18------------------------|
+    //               |---------------------------------------26----------------------------------|
+    int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
+    int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
+    int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
 
 
 // Routine used to save .gnet and .coo files representing
@@ -72,6 +82,10 @@ vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkL
 // "value" in the vector "Volume".
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value);
 
+// Returns one neighbor of (x,y,z) with value different of
+// "value".
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, long int value);
+
 // Merge together junctions that touch each other.
 bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLongArray *Volume);
 
@@ -91,6 +105,11 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
 // with one edge C that corresponds to A + B. The degree of the
 // node is set to -1 and A and B are moreved from PolyData.
 bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K);
+
+// Label connected components in Image. Results are stored
+// in Volume as negative labels. The routine returns the total
+// number of connected components.
+long LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume);
 
 /* ================================================================
    I/O ROUTINES
@@ -164,7 +183,7 @@ void ExportGraphFiles(vtkPolyData *PolyData, long int nnodes, long int *ValidId,
     for (node = 0; node < nnodes; node++) {
         if (ValidId[node]>=0) {
             Points -> GetPoint(node,r);
-            fprintf(fcoo,"%1.4f\t%1.4f\t%1.4f\n",r[0],r[1],r[2]);
+            fprintf(fcoo,"%1.4f\t%1.4f\t%1.4f\n",_dxy*r[0],_dxy*r[1],_dz*r[2]);
         }
     }
     fclose(fcoo);
@@ -378,7 +397,10 @@ double GetEdgeLength(vtkIdType edge, vtkPolyData *PolyData) {
 int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
-        printf("Loading ImageData file...\n");
+        char _imbinary[256];
+        sprintf(_imbinary,"%s_binary.vtk",FileName);
+        SaveImageData(ImageData,_imbinary);
+        printf("Clearing image boundaries...\n");
     #endif
 
     vtkIdType N = ImageData -> GetNumberOfPoints();
@@ -422,7 +444,7 @@ int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attribute
                 x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
                 v = ImageData -> GetScalarComponentAsDouble(x,y,z,0);
                 if (v) {
-                    for (i = 0; i < 26; i++) {
+                    for (i = 26; i--;) {
                         vl = ImageData -> GetScalarComponentAsDouble(x+ssdx[i],y+ssdy[i],z+ssdz[i],0);
                         Vol[1+ssdx[i]][1+ssdy[i]][1+ssdz[i]] = (vl) ? 1 : 0;
                     }
@@ -505,25 +527,34 @@ char GetNumberOfNeighborsWithValue(vtkImageData *Image, vtkLongArray *Volume, in
 }
 
 vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value) {
-    vtkIdType idk = 0; // We can do it because, by construction the voxel at id 0 should always be empty
+    vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
         if (Volume -> GetTuple1(idk) == value) {
             return idk;
         }
     }
-    return 0;
+    return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value) {
-    vtkIdType idk = 0; // We can do it because by construction, the voxel at id 0 should always be empty
+    vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
         if (Volume -> GetTuple1(idk) && Volume -> GetTuple1(idk) != value) {
             return idk;
         }
     }
-    return 0;
+    return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
+}
+
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, long int value) {
+    vtkIdType idk;
+    for (char k = 26; k--;) {
+        idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        if (Image->GetScalarComponentAsDouble(x+ssdx[k],y+ssdy[k],z+ssdz[k],0)!=value) return idk;
+    }
+    return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
 bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLongArray *Volume) {
@@ -591,7 +622,9 @@ long int GetOneAdjacentEdge(vtkPolyData *PolyData, long int edge_label, long int
 int Skeletonization(vtkImageData *Image, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
-        printf("Starting skeletonization process...\n");
+        char _imthinn[256];
+        sprintf(_imthinn,"%s_thinned.vtk",FileName);
+        SaveImageData(Image,_imthinn);
     #endif
 
     double r[3];
@@ -599,21 +632,117 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     vtkIdType id;
     long int junction_label = 1;
     vtkIdType N = Image -> GetNumberOfPoints();
-
     std::list<vtkIdType> Junctions;
     std::list<vtkIdType>::iterator itId;
+
+    // Inside this IF statement, isolated voxels and isolated pairs of voxels
+    // are expanded. If this is not done, these voxels will not be detected.
+    // This requires O(N).
+    if (_improve_skeleton_quality) {
+
+        #ifdef DEBUG
+            printf("Improving skeletonization [step 1: isolated single and pair of voxels]\n");
+        #endif
+
+        char nn;
+        double rn[3];
+        vtkIdType idn;
+        int xn, yn, zn;
+        for (id = N; id--;) {
+            Image -> GetPoint(id,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            if (Image->GetScalarComponentAsDouble(x,y,z,0)) {
+                nn = GetNumberOfNeighborsWithoutValue(Image,x,y,z,0);
+                if (nn==0) {
+                    // Expanding isolated voxel
+                    Image -> SetScalarComponentFromDouble(x+1,y,z,0,255);
+                    Image -> SetScalarComponentFromDouble(x-1,y,z,0,255);
+                } else if (nn==1) {
+                    idn = GetOneNeighborWithoutValue(x,y,z,Image,0);
+                    Image -> GetPoint(idn,rn);
+                    xn = (int)rn[0]; yn = (int)rn[1]; zn = (int)rn[2];
+                    if (GetNumberOfNeighborsWithoutValue(Image,xn,yn,zn,0)==1) {
+                        // Expanding isolated pair of voxels
+                        Image -> SetScalarComponentFromDouble(x-(int)(rn[0]-r[0]),y-(int)(rn[1]-r[1]),z-(int)(rn[2]-r[2]),0,255);
+                        Image -> SetScalarComponentFromDouble(xn+(int)(rn[0]-r[0]),yn+(int)(rn[1]-r[1]),zn+(int)(rn[2]-r[2]),0,255);
+                    }                    
+                }
+            }
+        }
+    }
 
     vtkSmartPointer<vtkLongArray> Volume = vtkSmartPointer<vtkLongArray>::New();
     Volume -> SetNumberOfComponents(0);
     Volume -> SetNumberOfTuples(N);
-    for (id = N; id--;) {
-        if (Image -> GetPointData() -> GetScalars() -> GetTuple1(id)) {
-            Volume -> SetTuple1(id,-1);
-        } else {
-            Volume -> SetTuple1(id,0);
+
+    // Inside this IF statement, we label all connected components
+    // and we search for those cc that don't have junctions. If any
+    // is found, we force it to have a junction by adding its first
+    // voxel to the list Junctions. This fixes the problem of not
+    // detecting loop-shaped ccs.
+    if (_improve_skeleton_quality) {
+        #ifdef DEBUG
+            printf("Improving skeletonization [step 2: verifying connected components]\n");
+        #endif
+        long int n_fixed = 0;
+        long int cc, ncc = LabelConnectedComponents(Image,Volume);
+
+        bool *HasJunction = new bool[ncc];
+        for (cc = ncc; cc--;) HasJunction[cc] = 0;
+        for (id = N; id--;) {
+            Image -> GetPoint(id,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            cc = (long int)Volume -> GetTuple1(id);
+            if (cc) {
+                if (GetNumberOfNeighborsWithValue(Image,Volume,x,y,z,cc) != 2) {
+                    HasJunction[(unsigned long int)(-cc-1)] = true;
+                }
+            }
+            Image -> SetScalarComponentFromDouble(x,y,z,0,-cc);
         }
+        for (id = N; id--;) {
+            Image -> GetPoint(id,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            cc = (long int)Volume -> GetTuple1(id);
+            if (cc) {
+                if (!HasJunction[(unsigned long int)(-cc-1)]) {
+                    HasJunction[(unsigned long int)(-cc-1)] = true;
+                    Junctions.insert(Junctions.begin(),id);
+                    Volume -> SetTuple1(id,junction_label);
+                    junction_label++;
+                    n_fixed++;
+                } else {
+                    Volume -> SetTuple1(id,-1);
+                }
+            } else {
+                Volume -> SetTuple1(id,0);
+            }
+        }
+        delete[] HasJunction;
+
+        #ifdef DEBUG
+            printf("\t#Components fixed = %ld\n",n_fixed);
+        #endif
+
+        Image -> GetPointData() -> GetScalars() -> Modified();
+
+    } else {
+
+        for (id = N; id--;) {
+            if (Image -> GetPointData() -> GetScalars() -> GetTuple1(id)) {
+                Volume -> SetTuple1(id,-1);
+            } else {
+                Volume -> SetTuple1(id,0);
+            }
+        }
+        Volume -> Modified();
+
     }
-    Volume -> Modified();
+
+    #ifdef DEBUG
+        printf("Starting skeletonization...\n");
+        printf("\tSearching for junctions...\n");
+    #endif
 
     for (id = N; id--;) {
         Image -> GetPoint(id,r);
@@ -638,13 +767,8 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     #endif
 
     // MERGING: During the merging process, voxels belonging to
-    // the same junction are merger together forming nodes.
+    // the same junction are merged together forming nodes.
     while (JunctionsMerge(Junctions,Image,Volume));
-
-    vtkIdType NumberOfVoxelsOnEdges = 0;
-    for (id = N; id--;) {
-        if (Volume->GetTuple1(id)==-1) NumberOfVoxelsOnEdges++;
-    }
 
     // Listing all nodes label we have until this point
     std::list<long int> Labels;
@@ -734,7 +858,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
             // @@PARAMETER: Minimum loop length (in voxels)
             if (!target_node) {
                 target_node = source_node;
-                if (Edge.size()<3) _should_add = false;
+                if (Edge.size() < 3) _should_add = false;
             }
 
             if (_should_add) {
@@ -925,4 +1049,78 @@ bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K) {
 
     }
     return false;
+}
+
+long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume) {
+
+    #ifdef DEBUG
+        printf("\tCalculating connected components...\n");
+    #endif
+
+    int *Dim = ImageData -> GetDimensions();
+
+    vtkIdType i, s, ido, id;
+
+    int x, y, z;
+    double v, r[3];
+    bool find = true;
+    long long int ro[3];
+    long int scluster, label;
+    ro[0] = Dim[0] * Dim[1] * Dim[2];
+    ro[1] = Dim[0] * Dim[1];
+
+    vtkSmartPointer<vtkIdList> CurrA = vtkSmartPointer<vtkIdList>::New();
+    vtkSmartPointer<vtkIdList> NextA = vtkSmartPointer<vtkIdList>::New();
+    vtkSmartPointer<vtkLongArray> CSz = vtkSmartPointer<vtkLongArray>::New();
+
+    Volume -> CopyComponent(0,ImageData->GetPointData()->GetScalars(),0);
+    Volume -> Modified();
+
+    label = 0;
+    while (find) {
+        for (s = 0; s < CurrA->GetNumberOfIds(); s++) {
+            ido = CurrA -> GetId(s);
+            ImageData -> GetPoint(ido,r);
+            x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
+            for (i=26; i--;) {
+                id = ImageData -> FindPoint(x+ssdx[i],y+ssdy[i],z+ssdz[i]);
+                v = Volume -> GetTuple1(id);
+                if ((long int)v > 0) {
+                    NextA -> InsertNextId(id);
+                    Volume -> SetTuple1(id,-label);
+                    scluster++;
+                }
+            }
+        }
+        if (!NextA->GetNumberOfIds()) {
+            find = false;
+            for (id=ro[0]; id--;) {
+                v = Volume -> GetTuple1(id);
+                if ((long int)v > 0) {
+                    find = true;
+                    ro[0] = id;
+                    break;
+                }
+            }
+            if (label) {
+                CSz -> InsertNextTuple1(scluster);
+            }
+            if (find) {
+                label++;
+                scluster = 1;
+                Volume -> SetTuple1(id,-label);
+                CurrA -> InsertNextId(id);
+            }
+        } else {
+            CurrA -> Reset();
+            CurrA -> DeepCopy(NextA);
+            NextA -> Reset();
+        }
+    }
+
+    #ifdef DEBUG
+        printf("\tNumber of detected components: %ld\n",(long int)CSz->GetNumberOfTuples());
+    #endif
+
+    return (long int)CSz->GetNumberOfTuples();
 }

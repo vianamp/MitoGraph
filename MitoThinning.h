@@ -48,6 +48,7 @@
     extern bool _scale_polydata_before_save;
     extern bool _export_nodes_label;
     extern double _div_threshold;
+    extern bool _improve_skeleton_quality;
 
 	// Thinning algorithm based on the paper: "A 3D 6-subinteration thinning
 	// algorithm for extracting medial lines", by Kálman Palágyi and Attila
