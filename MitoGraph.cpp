@@ -61,6 +61,7 @@
     double _rad = 0.150;
     double _dxy, _dz = -1.0;
     bool _export_graph_files = true;
+    bool _adaptive_threshold = false;
     bool _scale_polydata_before_save = true;
     bool _export_nodes_label = true;
     double _div_threshold = 0.1666667;
@@ -68,6 +69,11 @@
                                            // expanded and detected. Additional checking
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
+
+    int ssdx_6[6] = { 0,-1, 0, 1, 0, 0};
+    int ssdy_6[6] = { 0, 0,-1, 0, 1, 0};
+    int ssdz_6[6] = {-1, 0, 0, 0, 0, 1};
+
 
 // In order to acess the voxel (x,y,z) from ImageJ, I should use
 // GetId(x,(Dim[1]-1)-y,z,Dim);
@@ -140,6 +146,7 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
 // This routine calculate the Hessian matrix for each point
 // of a 3D volume and its eigenvalues (Discrete Approach)
 void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
+void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
 
 // Calculate the vesselness at each point of a 3D volume based
 // based on the Hessian eigenvalues
@@ -339,10 +346,6 @@ void FillHoles(vtkImageData *ImageData) {
     #ifdef DEBUG
         printf("\tSearching for holes in the image...\n");
     #endif
-
-    int ssdx_6[6] = { 0,-1, 0, 1, 0, 0};
-    int ssdy_6[6] = { 0, 0,-1, 0, 1, 0};
-    int ssdz_6[6] = {-1, 0, 0, 0, 0, 1};
 
     int *Dim = ImageData -> GetDimensions();
     vtkIdType N = ImageData -> GetNumberOfPoints();
@@ -599,6 +602,102 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
 
 }
 
+void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3) {
+    #ifdef DEBUG
+        printf("Calculating Hessian Eigeinvalues (Discrete)...\n");
+    #endif
+
+    int *Dim = Image -> GetDimensions();
+    vtkIdType id, N = Image -> GetNumberOfPoints();
+    double H[3][3], Eva[3], Eve[3][3], dxx, dyy, dzz, dxy, dxz, dyz, l1, l2, l3, frobnorm;
+
+    #ifdef DEBUG
+        printf("Calculating Gaussian Convolution...\n");
+    #endif
+
+    vtkSmartPointer<vtkImageGaussianSmooth> Gauss = vtkSmartPointer<vtkImageGaussianSmooth>::New();
+    Gauss -> SetInputData(Image);
+    Gauss -> SetDimensionality(3);
+    Gauss -> SetRadiusFactors(10,10,10);
+    Gauss -> SetStandardDeviations(sigma,sigma,sigma);
+    Gauss -> Update();
+
+    vtkFloatArray *ImageG = (vtkFloatArray*) Gauss -> GetOutput() -> GetPointData() -> GetScalars();
+
+    vtkSmartPointer<vtkFloatArray> Dx = vtkSmartPointer<vtkFloatArray>::New(); Dx -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dy = vtkSmartPointer<vtkFloatArray>::New(); Dy -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dz = vtkSmartPointer<vtkFloatArray>::New(); Dz -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dxx = vtkSmartPointer<vtkFloatArray>::New(); Dxx -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dyy = vtkSmartPointer<vtkFloatArray>::New(); Dyy -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dzz = vtkSmartPointer<vtkFloatArray>::New(); Dzz -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dxy = vtkSmartPointer<vtkFloatArray>::New(); Dxy -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dxz = vtkSmartPointer<vtkFloatArray>::New(); Dxz -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Dyz = vtkSmartPointer<vtkFloatArray>::New(); Dyz -> SetNumberOfTuples(N);
+    vtkSmartPointer<vtkFloatArray> Fro = vtkSmartPointer<vtkFloatArray>::New();
+    Fro -> SetNumberOfComponents(1);
+    Fro -> SetNumberOfTuples(N);
+
+    GetImageDerivativeDiscrete(ImageG,Dim,'x',Dx);
+    GetImageDerivativeDiscrete(ImageG,Dim,'y',Dy);
+    GetImageDerivativeDiscrete(ImageG,Dim,'z',Dz);
+    GetImageDerivativeDiscrete(Dx,Dim,'x',Dxx);
+    GetImageDerivativeDiscrete(Dy,Dim,'y',Dyy);
+    GetImageDerivativeDiscrete(Dz,Dim,'z',Dzz);
+    GetImageDerivativeDiscrete(Dy,Dim,'x',Dxy);
+    GetImageDerivativeDiscrete(Dz,Dim,'x',Dxz);
+    GetImageDerivativeDiscrete(Dz,Dim,'y',Dyz);
+
+    int x, y, z;
+    double *FThresh = new double[Dim[2]];
+    for ( id = Dim[2]; id--; ) FThresh[id] = 0.0;
+
+    for ( id = N; id--; ) {
+        l1 = l2 = l3 = 0.0;
+        H[0][0]=Dxx->GetTuple1(id); H[0][1]=Dxy->GetTuple1(id); H[0][2]=Dxz->GetTuple1(id);
+        H[1][0]=Dxy->GetTuple1(id); H[1][1]=Dyy->GetTuple1(id); H[1][2]=Dyz->GetTuple1(id);
+        H[2][0]=Dxz->GetTuple1(id); H[2][1]=Dyz->GetTuple1(id); H[2][2]=Dzz->GetTuple1(id);
+        frobnorm = FrobeniusNorm(H);
+        if (H[0][0]+H[1][1]+H[2][2]<0.0) {
+            vtkMath::Diagonalize3x3(H,Eva,Eve);
+            l1 = Eva[0]; l2 = Eva[1]; l3 = Eva[2];
+            Sort(&l1,&l2,&l3);
+        }
+        L1 -> SetTuple1(id,l1);
+        L2 -> SetTuple1(id,l2);
+        L3 -> SetTuple1(id,l3);
+        Fro -> SetTuple1(id,frobnorm);
+        z = GetZ(id,Dim);
+        FThresh[z] = (frobnorm > FThresh[z]) ? frobnorm : FThresh[z];
+    }
+
+    for ( z = Dim[2]; z--; ) FThresh[z] = sqrt(FThresh[z]);
+
+    int j;
+    double frobneigh;
+    for ( id = N; id--; ) {
+        x = GetX(id,Dim);
+        y = GetY(id,Dim);
+        z = GetZ(id,Dim);
+        frobneigh = 0.0;
+        if (x>0&&x<Dim[0]-1&&y>0&&y<Dim[1]-1&&z>0&&z<Dim[2]-1) {
+            for (j = 6; j--;) {
+                frobneigh += Fro -> GetTuple1(GetId(x+ssdx_6[j],y+ssdy_6[j],z+ssdz_6[j],Dim));
+            }
+            frobneigh /= 6.0;
+        }
+        if ( frobneigh < FThresh[z] ) {
+            L1 -> SetTuple1(id,0.0);
+            L2 -> SetTuple1(id,0.0);
+            L3 -> SetTuple1(id,0.0);
+        }
+    }
+    L1 -> Modified();
+    L2 -> Modified();
+    L3 -> Modified();
+
+    delete[] FThresh;
+}
+
 /* ================================================================
    VESSELNESS ROUTINE
 =================================================================*/
@@ -618,7 +717,11 @@ void GetVesselness(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDou
     double l1, l2, l3, ra, ran, rb, rbn, st, stn, ft_old, ft_new;
     vtkIdType id, N = Image -> GetNumberOfPoints();
 
-    GetHessianEigenvaluesDiscrete(sigma,Image,L1,L2,L3);
+    if (_adaptive_threshold) {
+        GetHessianEigenvaluesDiscreteZDependentThreshold(sigma,Image,L1,L2,L3);
+    } else {
+        GetHessianEigenvaluesDiscrete(sigma,Image,L1,L2,L3);
+    }
     
     for ( id = N; id--; ) {
         l1 = L1 -> GetTuple1(id);
@@ -846,6 +949,9 @@ int main(int argc, char *argv[]) {
             _sigmai = atof(argv[i+1]);
             _sigmaf = atof(argv[i+2]);
             _nsigma = atoi(argv[i+3]);
+        }
+        if (!strcmp(argv[i],"-adaptive")) {
+            _adaptive_threshold = true;
         }
         if (!strcmp(argv[i],"-threshold")) {
             _div_threshold = (double)atof(argv[i+1]);
