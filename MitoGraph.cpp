@@ -137,15 +137,10 @@ void FillHoles(vtkImageData *ImageData);
 // PNG file.
 void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary);
 
-<<<<<<< HEAD
-// Export ImageData 3D volumes as a sequence of single-TIFF images.
-void ExportTIFFSeq(vtkImageData *Image, const char FileName[]);
-=======
 // Export maximum projection of bottom and top parts of
 // a given Tiff image as a PNG file as well as the polydata
 // surface points
 void ExportDetailedMaxProjection(const char FileName[]);
->>>>>>> e5af0a2cf52cf0eb429efb0807d39617a9ed4bf0
 
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
@@ -271,19 +266,6 @@ void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
 
 }
 
-<<<<<<< HEAD
-void ExportTIFFSeq(vtkImageData *Image, const char FileName[]) {
-
-    #ifdef DEBUG
-        printf("Saving TIFF sequence...\n");
-    #endif
-
-    vtkSmartPointer<vtkTIFFWriter> Writer = vtkSmartPointer<vtkTIFFWriter>::New();
-    Writer -> SetInputData(Image);
-    Writer -> SetFilePattern("%s%04d.tif");
-    Writer -> SetFilePrefix(FileName);
-    Writer -> Write();
-=======
 void ExportDetailedMaxProjection(const char FileName[]) {
 
     #ifdef DEBUG
@@ -395,7 +377,6 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         PNGWriter -> Write();
 
     }
->>>>>>> e5af0a2cf52cf0eb429efb0807d39617a9ed4bf0
 
     #ifdef DEBUG
         printf("File Saved!\n");
