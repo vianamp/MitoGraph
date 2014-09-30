@@ -46,6 +46,7 @@
 #include <vtkStructuredPointsReader.h>
 #include <vtkImageGaussianSmooth.h>
 #include <vtkAppendPolyData.h>
+#include <vtkPolyDataReader.h>
 #include <vtkPolyDataWriter.h>
 #include <vtkContourFilter.h>
 #include <vtkDoubleArray.h>
@@ -65,6 +66,7 @@
     bool _scale_polydata_before_save = true;
     bool _export_nodes_label = true;
     double _div_threshold = 0.1666667;
+    bool _checkonly = false;
     bool _improve_skeleton_quality = true; // when this is true nodes with degree zero
                                            // expanded and detected. Additional checking
                                            // is also done to garantee that all non-zero
@@ -135,8 +137,15 @@ void FillHoles(vtkImageData *ImageData);
 // PNG file.
 void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary);
 
+<<<<<<< HEAD
 // Export ImageData 3D volumes as a sequence of single-TIFF images.
 void ExportTIFFSeq(vtkImageData *Image, const char FileName[]);
+=======
+// Export maximum projection of bottom and top parts of
+// a given Tiff image as a PNG file as well as the polydata
+// surface points
+void ExportDetailedMaxProjection(const char FileName[]);
+>>>>>>> e5af0a2cf52cf0eb429efb0807d39617a9ed4bf0
 
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
@@ -262,6 +271,7 @@ void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
 
 }
 
+<<<<<<< HEAD
 void ExportTIFFSeq(vtkImageData *Image, const char FileName[]) {
 
     #ifdef DEBUG
@@ -273,6 +283,119 @@ void ExportTIFFSeq(vtkImageData *Image, const char FileName[]) {
     Writer -> SetFilePattern("%s%04d.tif");
     Writer -> SetFilePrefix(FileName);
     Writer -> Write();
+=======
+void ExportDetailedMaxProjection(const char FileName[]) {
+
+    #ifdef DEBUG
+        printf("Saving Detailed Max projection...\n");
+    #endif
+
+    char _fullpath[256];
+    sprintf(_fullpath,"%s.tif",FileName);
+
+    vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
+    int errlog = TIFFReader -> CanReadFile(_fullpath);
+    // File cannot be opened
+    if (!errlog) {
+
+        printf("File %s connot be opened.\n",_fullpath);
+
+    } else {
+
+        // Loading TIFF File
+        TIFFReader -> SetFileName(_fullpath);
+        TIFFReader -> Update();
+        vtkImageData *Image = TIFFReader -> GetOutput();
+
+        //16bit to 8bit Conversion
+        Image = Convert16To8bit(Image);
+
+        // Loading PolyData Surface
+        sprintf(_fullpath,"%s_surface.vtk",FileName);
+        vtkSmartPointer<vtkPolyDataReader> PolyDaTaReader = vtkSmartPointer<vtkPolyDataReader>::New();
+        PolyDaTaReader -> SetFileName(_fullpath);
+        PolyDaTaReader -> Update();
+        vtkPolyData *Surface = PolyDaTaReader -> GetOutput();
+
+        // Stack Dimensions
+        int *Dim = Image -> GetDimensions();
+        
+        // Surface Bounds
+        double *Bounds = Surface -> GetBounds();
+
+        int zi = round(Bounds[4]/_dz); zi -= (zi>1) ? 1 : 0;
+        int zf = round(Bounds[5]/_dz); zf += (zi<Dim[2]-1) ? 1 : 0;
+
+        #ifdef DEBUG
+            printf("Z = [%d,%d]\n",zi,zf);
+        #endif
+
+        // Plane
+        vtkSmartPointer<vtkImageData> Plane = vtkSmartPointer<vtkImageData>::New();
+        Plane -> SetDimensions(2*Dim[0],2*Dim[1],1);
+        vtkIdType N = 4 * Dim[0] * Dim[1];
+
+        // Scalar VEctor
+        vtkSmartPointer<vtkUnsignedCharArray> MaxPArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
+        MaxPArray -> SetNumberOfComponents(1);
+        MaxPArray -> SetNumberOfTuples(N);
+        double range[2];
+        Image -> GetScalarRange(range);
+        MaxPArray -> FillComponent(0,range[0]);
+
+        //Max Projection
+        int x, y, z;
+        double v, vproj;
+        for (x = Dim[0]; x--;) {
+            for (y = Dim[1]; y--;) {
+                vproj = 0;
+                for (z = zi; z <= zi+8; z++) {
+                    v = Image -> GetScalarComponentAsFloat(x,y,z,0);
+                    vproj = (v > vproj) ? v : vproj;
+                }
+                MaxPArray -> SetTuple1(Plane->FindPoint(x,y,0),(unsigned char)vproj);
+            }
+        }
+        for (x = Dim[0]; x--;) {
+            for (y = Dim[1]; y--;) {
+                vproj = 0;
+                for (z = zf-8; z <= zf; z++) {
+                    v = Image -> GetScalarComponentAsFloat(x,y,z,0);
+                    vproj = (v > vproj) ? v : vproj;
+                }
+                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+Dim[1],0),(unsigned char)vproj);
+            }
+        }
+
+        // Surface Projection
+        double r[3];
+        vtkPoints *Points = Surface -> GetPoints();
+        for (vtkIdType id=0; id < Points -> GetNumberOfPoints(); id++) {
+            Points -> GetPoint(id,r);
+            if ( round(r[2]/_dz) >= zi && round(r[2]/_dz) <= zi+8 ) {
+                MaxPArray -> SetTuple1(Plane->FindPoint(round(r[0]/_dxy)+Dim[0],round(r[1]/_dxy),0),255);
+            }
+            if ( round(r[2]/_dz) >= zf-8 && round(r[2]/_dz) <= zf ) {
+                MaxPArray -> SetTuple1(Plane->FindPoint(round(r[0]/_dxy)+Dim[0],round(r[1]/_dxy)+Dim[1],0),255);
+            }
+        }
+
+        MaxPArray -> Modified();
+
+        Plane -> GetPointData() -> SetScalars(MaxPArray);
+
+        sprintf(_fullpath,"%s.png",FileName);
+
+        // Saving PNG File
+        vtkSmartPointer<vtkPNGWriter> PNGWriter = vtkSmartPointer<vtkPNGWriter>::New();
+        PNGWriter -> SetFileName(_fullpath);
+        PNGWriter -> SetFileDimensionality(2);
+        PNGWriter -> SetCompressionLevel(0);
+        PNGWriter -> SetInputData(Plane);
+        PNGWriter -> Write();
+
+    }
+>>>>>>> e5af0a2cf52cf0eb429efb0807d39617a9ed4bf0
 
     #ifdef DEBUG
         printf("File Saved!\n");
@@ -994,6 +1117,9 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-labels_off")) {
             _export_nodes_label = false;
         }
+        if (!strcmp(argv[i],"-checkonly")) {
+            _checkonly = true;
+        }
         if (!strcmp(argv[i],"-precision_off")) {
             _improve_skeleton_quality = false;
         }
@@ -1009,43 +1135,64 @@ int main(int argc, char *argv[]) {
     sprintf(_cmd,"ls %s*.tif | sed -e 's/.tif//' > %smitograph.files",_impath,_impath);
     system(_cmd);
 
-    double _dsigma = (_sigmaf-_sigmai) / (_nsigma-1);
-
-    // Generating summary file and writing the header
-    char _summaryfilename[256];
-    sprintf(_summaryfilename,"%ssummary.txt",_impath);
-    FILE *fsummary = fopen(_summaryfilename,"w");
-    fprintf(fsummary,"MitoGraph V2.0\n");
-    fprintf(fsummary,"Folder: %s\n",_impath);
-    fprintf(fsummary,"Pixel size: -xy %1.4fum, -z %1.4fum\n",_dxy,_dz);
-    fprintf(fsummary,"Average tubule radius: -r %1.4fum\n",_rad);
-    fprintf(fsummary,"Scales: -scales %1.2f",_sigmai);
-    for ( double sigma = _sigmai+_dsigma; sigma < _sigmaf+0.5*_dsigma; sigma += _dsigma )
-        fprintf(fsummary," %1.2f",sigma);
-    fprintf(fsummary,"\nPost-divergence threshold: -threshold %1.5f\n",_div_threshold);
-    time_t now = time(0);
-    fprintf(fsummary,"%s\n",ctime(&now));
-    fprintf(fsummary,"Image path\tsurface-volume (um3)\ttotal length (um)\tskeleton-volume (um3)\n");
-    fclose(fsummary);
-
-    // Multiscale vesselness
     char _tifffilename[256];
     char _tifflistpath[128];
-    double *attibutes = new double[3];
     sprintf(_tifflistpath,"%smitograph.files",_impath);
     FILE *f = fopen(_tifflistpath,"r");
-    while (fgets(_tifffilename,256, f) != NULL) {
-        _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
-        MultiscaleVesselness(_tifffilename,_sigmai,_dsigma,_sigmaf,attibutes);
-        
-        // Saving network attributes in the group file
-        fsummary = fopen(_summaryfilename,"a");
-        fprintf(fsummary,"%s\t%1.5f\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[1],attibutes[2]);
+
+    if (_checkonly) {
+
+        while (fgets(_tifffilename,256, f) != NULL) {
+            _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
+
+            ExportDetailedMaxProjection(_tifffilename);
+        }
+
+    } else {
+
+        double _dsigma = (_sigmaf-_sigmai) / (_nsigma-1);
+
+        // Generating summary file and writing the header
+        char _summaryfilename[256];
+        sprintf(_summaryfilename,"%ssummary.txt",_impath);
+        FILE *fsummary = fopen(_summaryfilename,"w");
+        if (_adaptive_threshold) {
+            fprintf(fsummary,"MitoGraph V2.1Beta [Adaptive Algorithm]\n");
+        } else {
+            fprintf(fsummary,"MitoGraph V2.0\n");
+        }
+        fprintf(fsummary,"Folder: %s\n",_impath);
+        fprintf(fsummary,"Pixel size: -xy %1.4fum, -z %1.4fum\n",_dxy,_dz);
+        fprintf(fsummary,"Average tubule radius: -r %1.4fum\n",_rad);
+        fprintf(fsummary,"Scales: -scales %1.2f",_sigmai);
+        for ( double sigma = _sigmai+_dsigma; sigma < _sigmaf+0.5*_dsigma; sigma += _dsigma )
+            fprintf(fsummary," %1.2f",sigma);
+        fprintf(fsummary,"\nPost-divergence threshold: -threshold %1.5f\n",_div_threshold);
+        time_t now = time(0);
+        fprintf(fsummary,"%s\n",ctime(&now));
+        fprintf(fsummary,"Image path\tsurface-volume (um3)\ttotal length (um)\tskeleton-volume (um3)\n");
         fclose(fsummary);
 
-        // Also printing on the screen
-        printf("%s\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[2]);
+        // Multiscale vesselness
+        double *attibutes = new double[3];
+        sprintf(_tifflistpath,"%smitograph.files",_impath);
+        FILE *f = fopen(_tifflistpath,"r");
+        while (fgets(_tifffilename,256, f) != NULL) {
+            _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
+
+            MultiscaleVesselness(_tifffilename,_sigmai,_dsigma,_sigmaf,attibutes);
+            
+            // Saving network attributes in the group file
+            fsummary = fopen(_summaryfilename,"a");
+            fprintf(fsummary,"%s\t%1.5f\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[1],attibutes[2]);
+            fclose(fsummary);
+
+            // Also printing on the screen
+            printf("%s\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[2]);
+
+        }
 
     }
+
     fclose(f);
 }
