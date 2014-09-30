@@ -135,6 +135,9 @@ void FillHoles(vtkImageData *ImageData);
 // PNG file.
 void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary);
 
+// Export ImageData 3D volumes as a sequence of single-TIFF images.
+void ExportTIFFSeq(vtkImageData *Image, const char FileName[]);
+
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
 =================================================================*/
@@ -259,6 +262,24 @@ void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
 
 }
 
+void ExportTIFFSeq(vtkImageData *Image, const char FileName[]) {
+
+    #ifdef DEBUG
+        printf("Saving TIFF sequence...\n");
+    #endif
+
+    vtkSmartPointer<vtkTIFFWriter> Writer = vtkSmartPointer<vtkTIFFWriter>::New();
+    Writer -> SetInputData(Image);
+    Writer -> SetFilePattern("%s%04d.tif");
+    Writer -> SetFilePrefix(FileName);
+    Writer -> Write();
+
+    #ifdef DEBUG
+        printf("File Saved!\n");
+    #endif
+
+}
+
 /* ================================================================
    IMAGE TRANSFORM
 =================================================================*/
@@ -326,13 +347,21 @@ vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double thresho
     ScalarsChar -> SetNumberOfTuples(N);
         
     double x;
-    for ( vtkIdType id = N; id--; ) {
-        x = ScalarsDouble -> GetTuple1(id);
-        if (x<=threshold) {
-            ScalarsChar -> SetTuple1(id,0);
-        } else {
-            ScalarsChar -> SetTuple1(id,255);
+
+    if (threshold > 0) {
+        for ( vtkIdType id = N; id--; ) {
+            x = ScalarsDouble -> GetTuple1(id);
+            if (x<=threshold) {
+                ScalarsChar -> SetTuple1(id,0);
+            } else {
+                ScalarsChar -> SetTuple1(id,255);
+            }
         }
+    } else {
+        for ( vtkIdType id = N; id--; ) {
+            x = ScalarsDouble -> GetTuple1(id);
+            ScalarsChar -> SetTuple1(id,(int)(255*(x-range[0])/(range[1]-range[0])));
+        }        
     }
     ScalarsChar -> Modified();
 
