@@ -61,4 +61,9 @@
 	// Routine used to save a PolyData
 	void SavePolyData(vtkPolyData *PolyData, const char FileName[], bool scale = _scale_polydata_before_save);
 
+	// Label connected components in Image. Results are stored
+	// in Volume as negative labels. The routine returns the total
+	// number of connected components.
+	long int LabelConnectedComponents(vtkImageData *ImageData, vtkDataArray *Volume, std::vector<long int> &CSz, int ngbh, double threshold);
+
 #endif

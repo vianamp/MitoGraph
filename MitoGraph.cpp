@@ -1013,6 +1013,28 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
     ImageEnhanced -> SetDimensions(Dim);
 
+    #ifdef DEBUG
+        printf("Removing tiny components...\n");
+    #endif
+
+    long int cluster;
+    std::vector<long int> CSz;
+    vtkSmartPointer<vtkDoubleArray> Volume = vtkSmartPointer<vtkDoubleArray>::New();
+    Volume -> SetNumberOfComponents(0);
+    Volume -> SetNumberOfTuples(N);
+    long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold);
+    
+    if (ncc > 1) {
+        for (id = N; id--;) {
+            cluster = (long int)Volume -> GetTuple1(id);
+            if (cluster < 0) {
+                if (CSz[-cluster-1] <= 5) {
+                    ImageEnhanced -> GetPointData() -> GetScalars() -> SetTuple1(id,0);
+                }
+            }
+        }
+    }
+
     //CREATING SURFACE POLYDATA
     //-------------------------
 
@@ -1135,6 +1157,7 @@ int main(int argc, char *argv[]) {
 
         // Generating summary file and writing the header
         char _summaryfilename[256];
+        char _individfilename[256];
         sprintf(_summaryfilename,"%ssummary.txt",_impath);
         FILE *fsummary = fopen(_summaryfilename,"w");
         if (_adaptive_threshold) {
@@ -1167,6 +1190,13 @@ int main(int argc, char *argv[]) {
             fsummary = fopen(_summaryfilename,"a");
             fprintf(fsummary,"%s\t%1.5f\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[1],attibutes[2]);
             fclose(fsummary);
+
+            // Saving network attributes in the individual file
+            sprintf(_individfilename,"%s.mitograph",_tifffilename);
+            FILE *findv = fopen(_individfilename,"w");
+            fprintf(findv,"surface-volume (um3)\ttotal length (um)\tskeleton-volume (um3)\n");
+            fprintf(findv,"%1.5f\t%1.5f\t%1.5f\n",attibutes[0],attibutes[1],attibutes[2]);
+            fclose(findv);
 
             // Also printing on the screen
             printf("%s\t%1.5f\t%1.5f\n",_tifffilename,attibutes[0],attibutes[2]);

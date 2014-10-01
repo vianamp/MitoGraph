@@ -106,11 +106,6 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
 // node is set to -1 and A and B are moreved from PolyData.
 bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K);
 
-// Label connected components in Image. Results are stored
-// in Volume as negative labels. The routine returns the total
-// number of connected components.
-long LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume);
-
 /* ================================================================
    I/O ROUTINES
 =================================================================*/
@@ -421,6 +416,7 @@ int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attribute
             }
     }
 
+
     #ifdef DEBUG
         printf("Starting thinning process...\n");
     #endif
@@ -685,7 +681,8 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
             printf("Improving skeletonization [step 2: verifying connected components]\n");
         #endif
         long int n_fixed = 0;
-        long int cc, ncc = LabelConnectedComponents(Image,Volume);
+        std::vector<long int> CSz;
+        long int cc, ncc = LabelConnectedComponents(Image,Volume,CSz,26,0);
 
         bool *HasJunction = new bool[ncc];
         for (cc = ncc; cc--;) HasJunction[cc] = 0;
@@ -1051,7 +1048,7 @@ bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K) {
     return false;
 }
 
-long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume) {
+long int LabelConnectedComponents(vtkImageData *ImageData, vtkDataArray *Volume, std::vector<long int> &CSz, int ngbh, double threshold) {
 
     #ifdef DEBUG
         printf("\tCalculating connected components...\n");
@@ -1071,7 +1068,6 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
 
     vtkSmartPointer<vtkIdList> CurrA = vtkSmartPointer<vtkIdList>::New();
     vtkSmartPointer<vtkIdList> NextA = vtkSmartPointer<vtkIdList>::New();
-    vtkSmartPointer<vtkLongArray> CSz = vtkSmartPointer<vtkLongArray>::New();
 
     Volume -> CopyComponent(0,ImageData->GetPointData()->GetScalars(),0);
     Volume -> Modified();
@@ -1082,10 +1078,10 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
             ido = CurrA -> GetId(s);
             ImageData -> GetPoint(ido,r);
             x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
-            for (i=26; i--;) {
-                id = ImageData -> FindPoint(x+ssdx[i],y+ssdy[i],z+ssdz[i]);
+            for (i = 0; i < ngbh; i++) {
+                id = ImageData -> FindPoint(x+ssdx_sort[i],y+ssdy_sort[i],z+ssdz_sort[i]);
                 v = Volume -> GetTuple1(id);
-                if ((long int)v > 0) {
+                if (v > threshold) {
                     NextA -> InsertNextId(id);
                     Volume -> SetTuple1(id,-label);
                     scluster++;
@@ -1096,14 +1092,14 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
             find = false;
             for (id=ro[0]; id--;) {
                 v = Volume -> GetTuple1(id);
-                if ((long int)v > 0) {
+                if (v > threshold) {
                     find = true;
                     ro[0] = id;
                     break;
                 }
             }
             if (label) {
-                CSz -> InsertNextTuple1(scluster);
+                CSz.push_back(scluster);
             }
             if (find) {
                 label++;
@@ -1119,8 +1115,9 @@ long int LabelConnectedComponents(vtkImageData *ImageData, vtkLongArray *Volume)
     }
 
     #ifdef DEBUG
-        printf("\tNumber of detected components: %ld\n",(long int)CSz->GetNumberOfTuples());
+        printf("\tNumber of detected components: %ld\n",(long int)CSz.size());
     #endif
 
-    return (long int)CSz->GetNumberOfTuples();
+    //return (long int)CSz->GetNumberOfTuples();
+    return (long int)CSz.size();
 }
