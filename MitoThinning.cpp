@@ -24,93 +24,86 @@
 
 // Routine used to save .gnet and .coo files representing
 // the skeleton of the mitochondrial network.
-void ExportGraphFiles(vtkPolyData *PolyData, long int nnodes, const char Prefix[]);
+void ExportGraphFiles(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, const char Prefix[]);
 
 // Routine to create the file _nodes.vtk. This file contains
 // little speres located at the junctions (nodes) coordinates
 // and might have the nodes label depending on if the variable
 // export_node_labels is true or false.
-void ExportNodes(vtkPolyData *PolyData, long int nnodes, long int *ValidId, const char Prefix[]);
-
-// Routine to delete all voxels located at boundaries of the
-// image volume. Otherwise the algorithm will have problems
-// checking the 3D neighborhood of those voxels.
-void CleanImageBoundaries(vtkImageData *ImageData);
+void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, const char Prefix[]);
 
 // Routine used to check whether a voxel is locates at the border
 // of the binary image or not. A border voxel is defined as those
 // that have at least one of their 6-neighbors equal to zero.
-bool IsBorder(vtkIdType id, vtkImageData *Image);
+bool IsBorder(vtkIdType id, vtkSmartPointer<vtkImageData> Image);
 
 // Routine used to smooth the parametric curves that describe the
 // skeleton edges. A simple average filter is used to do the job.
 // Sigma represents the number of times the filter is applied.
-void SmoothEdgesCoordinates(vtkPolyData *PolyData, double sigma);
+void SmoothEdgesCoordinates(vtkSmartPointer<vtkPolyData> PolyData, double sigma);
 
 // Estimate the mitochondrial volume by counting the number of
 // pixels in the binary image used as input for thinning.
-void GetVolumeFromVoxels(vtkImageData *Image, double *attributes);
+void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes);
 
 // Estimate the mitochondrial volume by using the skeleton
 // total length and assuming constant radius.
-void GetVolumeFromSkeletonLength(vtkPolyData *PolyData, double *attributes);
+void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes);
 
 // Calculate the length of a given edge.
-double GetEdgeLength(vtkIdType edge, vtkPolyData *PolyData);
+double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value given different of "value".
-char GetNumberOfNeighborsWithoutValue(vtkImageData *Image, int x, int y, int z, long int value);
+char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, int x, int y, int z, long int value);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value different of "value" in the vector "Volume".
-char GetNumberOfNeighborsWithoutValue(vtkImageData *Image, vtkLongArray *Volume, int x, int y, int z, long int value);
+char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value given by "value".
-char GetNumberOfNeighborsWithValue(vtkImageData *Image, int x, int y, int z, long int value);
+char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, int x, int y, int z, long int value);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value "value" in the vector "Volume".
-char GetNumberOfNeighborsWithValue(vtkImageData *Image, vtkLongArray *Volume, int x, int y, int z, long int value);
+char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value);
 
 // Returns one neighbor of (x,y,z) with value "value" in the
 // vector "Volume".
-vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value);
+vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value);
 
 // Returns one neighbor of (x,y,z) with value different of
 // "value" in the vector "Volume".
-vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value);
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value);
 
 // Returns one neighbor of (x,y,z) with value different of
 // "value".
-vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, long int value);
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, long int value);
 
 // Merge together junctions that touch each other.
-bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLongArray *Volume);
+bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume);
 
 // Track an edge starting at voxel (x,y,z) in the volume "Volume".
-std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume);
+std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume);
 
 // Returns an adjacency edge "edge_label".
-long int GetOneAdjacentEdge(vtkPolyData *PolyData, long int edge_label, long int junction_label, bool *found_on_left);
+long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge_label, long int junction_label, bool *found_on_left);
 
 // Track all the nodes and edges of a 3D structured thinned by
 // the routine Thinning3D.
-// @@FIX ME: Have to deal with degree-0 junctions (isolated voxels)
-//           and have to implement the edge extension routine.
-int Skeletonization(vtkImageData *Image, const char FileName[], double *attributes);
+int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes);
 
 // Replace two edges A and B attached to a node of degree 2
 // with one edge C that corresponds to A + B. The degree of the
 // node is set to -1 and A and B are moreved from PolyData.
-bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K);
+bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K);
 
 /* ================================================================
    I/O ROUTINES
 =================================================================*/
 
-void SaveImageData(vtkImageData *Image, const char FileName[]) {
+void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[]) {
     #ifdef DEBUG
         printf("Saving ImageData File...\n");
     #endif
@@ -126,7 +119,7 @@ void SaveImageData(vtkImageData *Image, const char FileName[]) {
     #endif
 }
 
-void SavePolyData(vtkPolyData *PolyData, const char FileName[], bool scale) {
+void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], bool scale) {
 
     #ifdef DEBUG
         printf("Saving PolyData from XYZ list...\n");
@@ -157,7 +150,7 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[], bool scale) {
     #endif
 }
 
-void ExportGraphFiles(vtkPolyData *PolyData, long int nnodes, long int *ValidId, const char Prefix[]) {
+void ExportGraphFiles(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, const char Prefix[]) {
     
     #ifdef DEBUG
         printf("Saving .coo file...\n");
@@ -201,7 +194,7 @@ void ExportGraphFiles(vtkPolyData *PolyData, long int nnodes, long int *ValidId,
 
 }
 
-void ExportNodes(vtkPolyData *PolyData, long int nnodes, long int *ValidId, const char Prefix[]) {
+void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, const char Prefix[]) {
     
     #ifdef DEBUG
         if (_export_nodes_label) {
@@ -275,7 +268,7 @@ void ExportNodes(vtkPolyData *PolyData, long int nnodes, long int *ValidId, cons
    IMAGE TRANSFORMATION
 =================================================================*/
 
-void CleanImageBoundaries(vtkImageData *ImageData) {
+void CleanImageBoundaries(vtkSmartPointer<vtkImageData> ImageData) {
     #ifdef DEBUG
         printf("Cleaning the image boundaries...\n");
     #endif
@@ -306,7 +299,7 @@ void CleanImageBoundaries(vtkImageData *ImageData) {
 =================================================================*/
 
 
-bool IsBorder(vtkIdType id, vtkImageData *Image) {
+bool IsBorder(vtkIdType id, vtkSmartPointer<vtkImageData> Image) {
     double r[3];
     int x, y, z;
     Image -> GetPoint(id,r);
@@ -321,7 +314,7 @@ bool IsBorder(vtkIdType id, vtkImageData *Image) {
     return false;
 }
 
-void SmoothEdgesCoordinates(vtkPolyData *PolyData, double sigma){
+void SmoothEdgesCoordinates(vtkSmartPointer<vtkPolyData> PolyData, double sigma){
 
     double r1[3], r2[3], r3[3];
     long int id, line, nlines, n, s;
@@ -354,7 +347,7 @@ void SmoothEdgesCoordinates(vtkPolyData *PolyData, double sigma){
     PolyData -> Modified();
 }
 
-void GetVolumeFromVoxels(vtkImageData *Image, double *attributes) {
+void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes) {
     double v;
     unsigned long int nv = 0;
     for (vtkIdType id=Image->GetNumberOfPoints();id--;) {
@@ -364,7 +357,7 @@ void GetVolumeFromVoxels(vtkImageData *Image, double *attributes) {
     attributes[0] = nv * (_dxy * _dxy * _dz);
 }
 
-void GetVolumeFromSkeletonLength(vtkPolyData *PolyData, double *attributes) {
+void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes) {
     double r1[3], r2[3], length = 0.0;
     vtkPoints *Points = PolyData -> GetPoints();
     for (vtkIdType edge=PolyData->GetNumberOfCells();edge--;) {
@@ -374,7 +367,7 @@ void GetVolumeFromSkeletonLength(vtkPolyData *PolyData, double *attributes) {
     attributes[2] = length * (acos(-1.0)*pow(_rad,2));
 }
 
-double GetEdgeLength(vtkIdType edge, vtkPolyData *PolyData) {
+double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
     double r1[3], r2[3];
     double length = 0.0;
     for (vtkIdType n = 1; n < PolyData->GetCell(edge)->GetNumberOfPoints(); n++) {
@@ -389,13 +382,12 @@ double GetEdgeLength(vtkIdType edge, vtkPolyData *PolyData) {
    THINNING 3D
 =================================================================*/
 
-int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attributes) {
+int Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
         char _imbinary[256];
         sprintf(_imbinary,"%s_binary.vtk",FileName);
         SaveImageData(ImageData,_imbinary);
-        printf("Clearing image boundaries...\n");
     #endif
 
     vtkIdType N = ImageData -> GetNumberOfPoints();
@@ -415,7 +407,6 @@ int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attribute
                 Vol[i][j] = new int[3];
             }
     }
-
 
     #ifdef DEBUG
         printf("Starting thinning process...\n");
@@ -482,7 +473,7 @@ int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attribute
    SKELETONIZATION
 =================================================================*/
 
-char GetNumberOfNeighborsWithoutValue(vtkImageData *Image, int x, int y, int z, long int value) {
+char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, int x, int y, int z, long int value) {
     double r[3];
     char nn = 0;
     for (char k = 26; k--;) {
@@ -491,7 +482,7 @@ char GetNumberOfNeighborsWithoutValue(vtkImageData *Image, int x, int y, int z, 
     return nn;
 }
 
-char GetNumberOfNeighborsWithoutValue(vtkImageData *Image, vtkLongArray *Volume, int x, int y, int z, long int value) {
+char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value) {
     double r[3];
     char nn = 0;
     vtkIdType idk;
@@ -502,7 +493,7 @@ char GetNumberOfNeighborsWithoutValue(vtkImageData *Image, vtkLongArray *Volume,
     return nn;
 }
 
-char GetNumberOfNeighborsWithValue(vtkImageData *Image, int x, int y, int z, long int value) {
+char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, int x, int y, int z, long int value) {
     double r[3];
     char nn = 0;
     for (char k = 26; k--;) {
@@ -511,7 +502,7 @@ char GetNumberOfNeighborsWithValue(vtkImageData *Image, int x, int y, int z, lon
     return nn;
 }
 
-char GetNumberOfNeighborsWithValue(vtkImageData *Image, vtkLongArray *Volume, int x, int y, int z, long int value) {
+char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value) {
     double r[3];
     char nn = 0;
     vtkIdType idk;
@@ -522,7 +513,7 @@ char GetNumberOfNeighborsWithValue(vtkImageData *Image, vtkLongArray *Volume, in
     return nn;
 }
 
-vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value) {
+vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
@@ -533,7 +524,7 @@ vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkImageData *Image, vtkL
     return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
-vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume, long int value) {
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
@@ -544,7 +535,7 @@ vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, v
     return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
-vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, long int value) {
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
@@ -553,7 +544,7 @@ vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkImageData *Image, l
     return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
-bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLongArray *Volume) {
+bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume) {
     char nk;
     double r[3];
     vtkIdType id;
@@ -578,7 +569,7 @@ bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkImageData *Image, vtkLong
     return _has_changed;
 }
 
-std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkImageData *Image, vtkLongArray *Volume) {
+std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume) {
     double r[3];
     vtkIdType idk;
     std::list<vtkIdType> Edge;
@@ -594,7 +585,7 @@ std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkImageData *Image,
     return Edge;
 }
 
-long int GetOneAdjacentEdge(vtkPolyData *PolyData, long int edge_label, long int original_source, bool *_common_source) {
+long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge_label, long int original_source, bool *_common_source) {
     vtkCell *Edge;
     long int source, target;
     for (long int edge = PolyData->GetNumberOfCells();edge--;) {
@@ -615,7 +606,7 @@ long int GetOneAdjacentEdge(vtkPolyData *PolyData, long int edge_label, long int
     return -1;
 }
 
-int Skeletonization(vtkImageData *Image, const char FileName[], double *attributes) {
+int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
         char _imthinn[256];
@@ -907,7 +898,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     PointsListZ.clear();
 
     // Creating raw polyData
-    vtkPolyData *PolyData = vtkPolyData::New();
+    vtkSmartPointer<vtkPolyData> PolyData = vtkPolyData::New();
     PolyData -> SetPoints(Points);
     PolyData -> SetLines(EdgeArray);
     PolyData -> Modified();
@@ -958,7 +949,7 @@ int Skeletonization(vtkImageData *Image, const char FileName[], double *attribut
     return 1;
 }
 
-bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K) {
+bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K) {
 
     // Given this edge: (source) o---->----o (target), it's necessary
     // to check whether either source or target are nodes of degree 2.
@@ -1048,7 +1039,7 @@ bool MergeEdgesOfDegree2Nodes(vtkPolyData *PolyData, int *K) {
     return false;
 }
 
-long int LabelConnectedComponents(vtkImageData *ImageData, vtkDataArray *Volume, std::vector<long int> &CSz, int ngbh, double threshold) {
+long int LabelConnectedComponents(vtkSmartPointer<vtkImageData> ImageData, vtkSmartPointer<vtkDataArray> Volume, std::vector<long int> &CSz, int ngbh, double threshold) {
 
     #ifdef DEBUG
         printf("\tCalculating connected components...\n");

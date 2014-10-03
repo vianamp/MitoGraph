@@ -120,14 +120,14 @@ double FrobeniusNorm(double M[3][3]);
 // This routine converts 16-bit volumes into 8-bit volumes by
 // linearly scaling the original range of intensities [min,max]
 // in [0,255] (http://rsbweb.nih.gov/ij/docs/guide/146-28.html)
-vtkImageData *Convert16To8bit(vtkImageData *Image);
+vtkSmartPointer<vtkImageData> Convert16To8bit(vtkSmartPointer<vtkImageData> Image);
 
 // Apply a threshold to a ImageData and converts the result in
 // a 8-bit ImageData.
-vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double threshold);
+vtkSmartPointer<vtkImageData> BinarizeAndConvertDoubleToChar(vtkSmartPointer<vtkImageData> Image, double threshold);
 
 // Fill holes in the 3D image
-void FillHoles(vtkImageData *ImageData);
+void FillHoles(vtkSmartPointer<vtkImageData> ImageData);
 
 /* ================================================================
    I/O ROUTINES
@@ -135,7 +135,7 @@ void FillHoles(vtkImageData *ImageData);
 
 // Export maximum projection of a given ImageData as a
 // PNG file.
-void ExportMaxProjection(vtkImageData *Image, const char FileName[], bool binary);
+void ExportMaxProjection(vtkSmartPointer<vtkImageData> Image, const char FileName[], bool binary);
 
 // Export maximum projection of bottom and top parts of
 // a given Tiff image as a PNG file as well as the polydata
@@ -148,16 +148,16 @@ void ExportDetailedMaxProjection(const char FileName[]);
 
 // This routine uses a discrete differential operator to
 // calculate the derivatives of a given 3D volume
-void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, vtkFloatArray *Derivative);
+void GetImageDerivativeDiscrete(vtkSmartPointer<vtkDataArray> Image, int *dim, char direction, vtkSmartPointer<vtkFloatArray> Derivative);
 
 // This routine calculate the Hessian matrix for each point
 // of a 3D volume and its eigenvalues (Discrete Approach)
-void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
-void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
+void GetHessianEigenvaluesDiscrete(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
+void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
 
 // Calculate the vesselness at each point of a 3D volume based
 // based on the Hessian eigenvalues
-void GetVesselness(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3);
+void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
 
 // Calculate the vesselness over a range of different scales
 int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf, double *attibutes);
@@ -168,7 +168,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
 // This routine calculates the divergence filter of a 3D volume
 // based on the orientation of the gradient vector field
-void GetDivergenceFilter(int *Dim, vtkDoubleArray *Scalars);
+void GetDivergenceFilter(int *Dim, vtkSmartPointer<vtkDoubleArray> Scalars);
 
 /**========================================================
  Auxiliar functions
@@ -222,7 +222,7 @@ double FrobeniusNorm(double M[3][3]) {
    I/O ROUTINES
 =================================================================*/
 
-void ExportMaxProjection(vtkImageData *Image, const char FileName[]) {
+void ExportMaxProjection(vtkSmartPointer<vtkImageData> Image, const char FileName[]) {
 
     #ifdef DEBUG
         printf("Saving Max projection...\n");
@@ -287,7 +287,7 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         // Loading TIFF File
         TIFFReader -> SetFileName(_fullpath);
         TIFFReader -> Update();
-        vtkImageData *Image = TIFFReader -> GetOutput();
+        vtkSmartPointer<vtkImageData> Image = TIFFReader -> GetOutput();
 
         //16bit to 8bit Conversion
         Image = Convert16To8bit(Image);
@@ -297,7 +297,7 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         vtkSmartPointer<vtkPolyDataReader> PolyDaTaReader = vtkSmartPointer<vtkPolyDataReader>::New();
         PolyDaTaReader -> SetFileName(_fullpath);
         PolyDaTaReader -> Update();
-        vtkPolyData *Surface = PolyDaTaReader -> GetOutput();
+        vtkSmartPointer<vtkPolyData> Surface = PolyDaTaReader -> GetOutput();
 
         // Stack Dimensions
         int *Dim = Image -> GetDimensions();
@@ -388,7 +388,7 @@ void ExportDetailedMaxProjection(const char FileName[]) {
    IMAGE TRANSFORM
 =================================================================*/
 
-vtkImageData *Convert16To8bit(vtkImageData *Image) {
+vtkSmartPointer<vtkImageData> Convert16To8bit(vtkSmartPointer<vtkImageData> Image) {
 
     // 8-Bit images
     if (Image -> GetScalarType() == VTK_UNSIGNED_CHAR) {
@@ -402,7 +402,7 @@ vtkImageData *Convert16To8bit(vtkImageData *Image) {
             printf("Converting from 16-bit to 8-bit...\n");
         #endif
 
-        vtkImageData *Image8 = vtkImageData::New();
+        vtkSmartPointer<vtkImageData> Image8 = vtkImageData::New();
         Image8 -> ShallowCopy(Image);
 
         vtkDataArray *ScalarsShort = Image -> GetPointData() -> GetScalars();
@@ -436,9 +436,9 @@ vtkImageData *Convert16To8bit(vtkImageData *Image) {
     }
 }
 
-vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double threshold) {
+vtkSmartPointer<vtkImageData> BinarizeAndConvertDoubleToChar(vtkSmartPointer<vtkImageData> Image, double threshold) {
 
-    vtkImageData *Image8 = vtkImageData::New();
+    vtkSmartPointer<vtkImageData> Image8 = vtkImageData::New();
     Image8 -> ShallowCopy(Image);
 
     vtkDataArray *ScalarsDouble = Image -> GetPointData() -> GetScalars();
@@ -474,7 +474,7 @@ vtkImageData *BinarizeAndConvertDoubleToChar(vtkImageData *Image, double thresho
 
 }
 
-void FillHoles(vtkImageData *ImageData) {
+void FillHoles(vtkSmartPointer<vtkImageData> ImageData) {
 
     #ifdef DEBUG
         printf("\tSearching for holes in the image...\n");
@@ -576,7 +576,7 @@ void FillHoles(vtkImageData *ImageData) {
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
 =================================================================*/
 
-void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, vtkFloatArray *Derivative) {
+void GetImageDerivativeDiscrete(vtkSmartPointer<vtkDataArray> Image, int *dim, char direction, vtkSmartPointer<vtkFloatArray> Derivative) {
     #ifdef DEBUG
         printf("Calculating Image Derivatives (Discrete)...\n");
     #endif
@@ -657,7 +657,7 @@ void GetImageDerivativeDiscrete(vtkDataArray *Image, int *dim, char direction, v
 
 }
 
-void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3) {
+void GetHessianEigenvaluesDiscrete(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3) {
     #ifdef DEBUG
         printf("Calculating Hessian Eigeinvalues (Discrete)...\n");
     #endif
@@ -735,7 +735,7 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkImageData *Image, vtkDoubleA
 
 }
 
-void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3) {
+void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3) {
     #ifdef DEBUG
         printf("Calculating Hessian Eigeinvalues (Discrete)...\n");
     #endif
@@ -835,7 +835,7 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData
    VESSELNESS ROUTINE
 =================================================================*/
 
-void GetVesselness(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDoubleArray *L2, vtkDoubleArray *L3) {
+void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3) {
 
     #ifdef DEBUG
         printf("Calculating Vesselness...\n");
@@ -885,7 +885,7 @@ void GetVesselness(double sigma, vtkImageData *Image, vtkDoubleArray *L1, vtkDou
    DIVERGENCE FILTER
 =================================================================*/
 
-void GetDivergenceFilter(int *Dim, vtkDoubleArray *Scalars) {
+void GetDivergenceFilter(int *Dim, vtkSmartPointer<vtkDoubleArray> Scalars) {
 
     #ifdef DEBUG
         printf("Calculating Divergent Filter...\n");
@@ -901,12 +901,14 @@ void GetDivergenceFilter(int *Dim, vtkDoubleArray *Scalars) {
     int MI[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
 
     vtkSmartPointer<vtkDoubleArray> Div = vtkSmartPointer<vtkDoubleArray>::New();
+    Div -> SetNumberOfComponents(1);
     Div -> SetNumberOfTuples(Scalars->GetNumberOfTuples());
+    Div -> FillComponent(0,0.0);
 
     for (z = s+1; z < Dim[2]-s-1; z++) {
         for (y = s+1; y < Dim[1]-s-1; y++) {
             for (x = s+1; x < Dim[0]-s-1; x++) {
-                v = 0;
+                v = 0.0;
                 id = GetId(x,y,z,Dim);
                 if (Scalars->GetTuple1(id)) {
                     for (i = 0; i < 6; i++) {
@@ -963,7 +965,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     #endif
 
     // Conversion 16-bit to 8-bit
-    vtkImageData *Image = Convert16To8bit(TIFFReader->GetOutput());
+    vtkSmartPointer<vtkImageData> Image = Convert16To8bit(TIFFReader->GetOutput());
 
     if (!Image) printf("Format not supported.\n");
 
@@ -981,7 +983,10 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     AUX2 -> SetNumberOfTuples(N);
     AUX3 -> SetNumberOfTuples(N);
     VSSS -> SetNumberOfTuples(N);
-    VSSS -> FillComponent(0,0);
+    AUX1 -> FillComponent(0,0.0);
+    AUX2 -> FillComponent(0,0.0);
+    AUX3 -> FillComponent(0,0.0);
+    VSSS -> FillComponent(0,0.0);
 
     double sigma, vn, vo;
 
@@ -1009,21 +1014,30 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     GetDivergenceFilter(Dim,VSSS);
 
-    vtkImageData *ImageEnhanced = vtkImageData::New();
+    vtkSmartPointer<vtkImageData> ImageEnhanced = vtkSmartPointer<vtkImageData>::New();
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
     ImageEnhanced -> SetDimensions(Dim);
 
     #ifdef DEBUG
-        printf("Removing tiny components...\n");
+        char _imdiv[256];
+        sprintf(_imdiv,"%s_div.vtk",FileName);
+        SaveImageData(ImageEnhanced,_imdiv);
     #endif
+
+    #ifdef DEBUG
+        printf("Clear boundaries and removing tiny components...\n");
+    #endif
+
+    CleanImageBoundaries(ImageEnhanced);
 
     long int cluster;
     std::vector<long int> CSz;
     vtkSmartPointer<vtkDoubleArray> Volume = vtkSmartPointer<vtkDoubleArray>::New();
     Volume -> SetNumberOfComponents(0);
     Volume -> SetNumberOfTuples(N);
+    Volume -> FillComponent(0,0);
     long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold);
-    
+
     if (ncc > 1) {
         for (id = N; id--;) {
             cluster = (long int)Volume -> GetTuple1(id);
@@ -1052,7 +1066,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //BINARIZATION
     //------------
 
-    vtkImageData *Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold);
+    vtkSmartPointer<vtkImageData> Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold);
 
     //FILLING HOLES
     //-------------
