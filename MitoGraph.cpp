@@ -302,6 +302,10 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         // Stack Dimensions
         int *Dim = Image -> GetDimensions();
         
+        #ifdef DEBUG
+            printf("Dim = [%d,%d,%d]\n",Dim[0],Dim[1],Dim[2]);
+        #endif
+
         // Surface Bounds
         double *Bounds = Surface -> GetBounds();
 
@@ -314,8 +318,8 @@ void ExportDetailedMaxProjection(const char FileName[]) {
 
         // Plane
         vtkSmartPointer<vtkImageData> Plane = vtkSmartPointer<vtkImageData>::New();
-        Plane -> SetDimensions(2*Dim[0],2*Dim[1],1);
-        vtkIdType N = 4 * Dim[0] * Dim[1];
+        Plane -> SetDimensions(2*Dim[0],4*Dim[1],1);
+        vtkIdType N = 8 * Dim[0] * Dim[1];
 
         // Scalar VEctor
         vtkSmartPointer<vtkUnsignedCharArray> MaxPArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
@@ -324,6 +328,11 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         double range[2];
         Image -> GetScalarRange(range);
         MaxPArray -> FillComponent(0,range[0]);
+
+        #ifdef DEBUG
+            printf("Range = [%f,%f]\n",range[0],range[1]);
+        #endif
+
 
         //Max Projection
         int x, y, z;
@@ -349,24 +358,59 @@ void ExportDetailedMaxProjection(const char FileName[]) {
             }
         }
 
-        // Surface Projection
+        // Partial surface Projection
         double r[3];
         vtkPoints *Points = Surface -> GetPoints();
         for (vtkIdType id=0; id < Points -> GetNumberOfPoints(); id++) {
             Points -> GetPoint(id,r);
-            if ( round(r[2]/_dz) >= zi && round(r[2]/_dz) <= zi+8 ) {
-                MaxPArray -> SetTuple1(Plane->FindPoint(round(r[0]/_dxy)+Dim[0],round(r[1]/_dxy),0),255);
+            x = round(r[0]/_dxy);
+            y = round(r[1]/_dxy);
+            z = round(r[2]/_dz);
+            if ( z >= zi && z <= zi+8 ) {
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[0],y,0),255);
             }
-            if ( round(r[2]/_dz) >= zf-8 && round(r[2]/_dz) <= zf ) {
-                MaxPArray -> SetTuple1(Plane->FindPoint(round(r[0]/_dxy)+Dim[0],round(r[1]/_dxy)+Dim[1],0),255);
+            if ( z >= zf-8 && z <= zf ) {
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[0],y+Dim[1],0),255);
             }
         }
+
+        //Complete max projection
+        for (x = Dim[0]; x--;) {
+            for (y = Dim[1]; y--;) {
+                vproj = 0;
+                for (z = 0; z < Dim[2]; z++) {
+                    v = Image -> GetScalarComponentAsFloat(x,y,z,0);
+                    vproj = (v > vproj) ? v : vproj;
+                }
+                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+2*Dim[1],0),(unsigned char)vproj);
+            }
+        }
+
+        // Complete surface Projection
+        for (vtkIdType id=0; id < Points -> GetNumberOfPoints(); id++) {
+            Points -> GetPoint(id,r);
+            x = round(r[0]/_dxy);
+            y = round(r[1]/_dxy);
+            z = round(r[2]/_dz);
+            MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[0],y+2*Dim[1],0),255);
+        }
+
+        //First and last slice
+        for (x = Dim[0]; x--;) {
+            for (y = Dim[1]; y--;) {
+                v = Image -> GetScalarComponentAsFloat(x,y,0,0);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+3*Dim[1],0),(unsigned char)v);
+                v = Image -> GetScalarComponentAsFloat(x,y,Dim[2]-1,0);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[1],y+3*Dim[1],0),(unsigned char)v);
+            }
+        }
+
 
         MaxPArray -> Modified();
 
         Plane -> GetPointData() -> SetScalars(MaxPArray);
 
-        sprintf(_fullpath,"%s.png",FileName);
+        sprintf(_fullpath,"%s_detailed.png",FileName);
 
         // Saving PNG File
         vtkSmartPointer<vtkPNGWriter> PNGWriter = vtkSmartPointer<vtkPNGWriter>::New();
@@ -1163,6 +1207,8 @@ int main(int argc, char *argv[]) {
             _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
 
             ExportDetailedMaxProjection(_tifffilename);
+
+            printf("%s\n",_tifffilename);
         }
 
     } else {
