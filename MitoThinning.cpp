@@ -13,15 +13,6 @@
     int ssdy[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     int ssdz[26] = { 1, 1, 1, 0, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0, 0,-1,-1,-1};
 
-
-    //               |------06------|
-    //               |------------------------18------------------------|
-    //               |---------------------------------------26----------------------------------|
-    int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
-    int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
-    int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
-
-
 // Routine used to save .gnet and .coo files representing
 // the skeleton of the mitochondrial network.
 void ExportGraphFiles(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, const char Prefix[]);
@@ -92,7 +83,7 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
 
 // Track all the nodes and edges of a 3D structured thinned by
 // the routine Thinning3D.
-int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes);
+vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes);
 
 // Replace two edges A and B attached to a node of degree 2
 // with one edge C that corresponds to A + B. The degree of the
@@ -128,16 +119,6 @@ void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], 
     #ifdef DEBUG
         printf("\t#Points in PolyData file: %llu.\n",(vtkIdType)PolyData->GetNumberOfPoints());
     #endif
-
-    if (scale) {
-        double r[3];
-        vtkPoints *Points = PolyData -> GetPoints();
-        for (vtkIdType id = 0; id < Points -> GetNumberOfPoints(); id++) {
-            Points -> GetPoint(id,r);
-            Points -> SetPoint(id,_dxy*r[0],_dxy*r[1],_dz*r[2]);
-        }
-        Points -> Modified();
-    }
 
     vtkSmartPointer<vtkPolyDataWriter> Writer = vtkSmartPointer<vtkPolyDataWriter>::New();
     Writer -> SetFileType(VTK_BINARY);
@@ -382,7 +363,7 @@ double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
    THINNING 3D
 =================================================================*/
 
-int Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes) {
+vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
         char _imbinary[256];
@@ -606,7 +587,7 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
     return -1;
 }
 
-int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes) {
+vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
         char _imthinn[256];
@@ -940,13 +921,7 @@ int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], 
 
     GetVolumeFromSkeletonLength(PolyData,attributes); // total length and skeleton-length volume
 
-    char _fullpath[256];
-    sprintf(_fullpath,"%s_skeleton.vtk",FileName);
-    SavePolyData(PolyData,_fullpath);
-
-    //@FIX ME: Expand edges and nodes with degree zero.
-
-    return 1;
+    return PolyData;
 }
 
 bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K) {

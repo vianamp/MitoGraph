@@ -45,6 +45,7 @@
 #include <vtkImageExtractComponents.h>
 #include <vtkStructuredPointsReader.h>
 #include <vtkImageGaussianSmooth.h>
+#include <vtkKdTreePointLocator.h>
 #include <vtkAppendPolyData.h>
 #include <vtkPolyDataReader.h>
 #include <vtkPolyDataWriter.h>
@@ -67,15 +68,19 @@
     bool _export_nodes_label = true;
     double _div_threshold = 0.1666667;
     bool _checkonly = false;
+    bool _width = false;
     bool _improve_skeleton_quality = true; // when this is true nodes with degree zero
                                            // expanded and detected. Additional checking
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
 
-    int ssdx_6[6] = { 0,-1, 0, 1, 0, 0};
-    int ssdy_6[6] = { 0, 0,-1, 0, 1, 0};
-    int ssdz_6[6] = {-1, 0, 0, 0, 0, 1};
 
+    //               |------06------|
+    //               |------------------------18------------------------|
+    //               |---------------------------------------26----------------------------------|
+    int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
+    int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
+    int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
 
 // In order to acess the voxel (x,y,z) from ImageJ, I should use
 // GetId(x,(Dim[1]-1)-y,z,Dim);
@@ -112,6 +117,10 @@ void Sort(double *l1, double *l2, double *l3);
 // Calculate the Frobenius norm of a given 3x3 matrix
 // http://mathworld.wolfram.com/FrobeniusNorm.html
 double FrobeniusNorm(double M[3][3]);
+
+// This routine scales the polydata points to the correct dimension
+// given by parameters _dxy and _dz.
+void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData);
 
 /* ================================================================
    IMAGE TRANSFORM
@@ -170,6 +179,22 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 // based on the orientation of the gradient vector field
 void GetDivergenceFilter(int *Dim, vtkSmartPointer<vtkDoubleArray> Scalars);
 
+/* ================================================================
+   WIDTH ANALYSIS
+=================================================================*/
+
+// Approximation of tubule width by the distance of the skeleton
+// to the closest point over the surface.
+void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkPolyData> Surface);
+
+/* ================================================================
+   INTENSITY MAPPING
+=================================================================*/
+
+// Intensities of the original TIFF image is mapped into a scalar
+// component of the skeleton.
+void MapImageIntensity(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkImageData> ImageData, int nneigh);
+
 /**========================================================
  Auxiliar functions
  =========================================================*/
@@ -216,6 +241,16 @@ double FrobeniusNorm(double M[3][3]) {
         for (int j = 3;j--;)
             f += M[i][j]*M[i][j];
     return sqrt(f);
+}
+
+void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData) {
+    double r[3];
+    vtkPoints *Points = PolyData -> GetPoints();
+    for (vtkIdType id = 0; id < Points -> GetNumberOfPoints(); id++) {
+        Points -> GetPoint(id,r);
+        Points -> SetPoint(id,_dxy*r[0],_dxy*r[1],_dz*r[2]);
+    }
+    Points -> Modified();
 }
 
 /* ================================================================
@@ -567,7 +602,7 @@ void FillHoles(vtkSmartPointer<vtkImageData> ImageData) {
             ImageData -> GetPoint(ido,r);
             x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
             for (i = 0; i < 6; i++) {
-                id = ImageData -> FindPoint(x+ssdx_6[i],y+ssdy_6[i],z+ssdz_6[i]);
+                id = ImageData -> FindPoint(x+ssdx_sort[i],y+ssdy_sort[i],z+ssdz_sort[i]);
                 v = Volume -> GetTuple1(id);
                 if ((long int)v > 0) {
                     NextA -> InsertNextId(id);
@@ -857,8 +892,8 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
         z = GetZ(id,Dim);
         frobneigh = 0.0;
         if (x>0&&x<Dim[0]-1&&y>0&&y<Dim[1]-1&&z>0&&z<Dim[2]-1) {
-            for (j = 6; j--;) {
-                frobneigh += Fro -> GetTuple1(GetId(x+ssdx_6[j],y+ssdy_6[j],z+ssdz_6[j],Dim));
+            for (j = 0; j < 6; j++) {
+                frobneigh += Fro -> GetTuple1(GetId(x+ssdx_sort[j],y+ssdy_sort[j],z+ssdz_sort[j],Dim));
             }
             frobneigh /= 6.0;
         }
@@ -975,6 +1010,85 @@ void GetDivergenceFilter(int *Dim, vtkSmartPointer<vtkDoubleArray> Scalars) {
     Scalars -> Modified();
 
 }
+
+/* ================================================================
+   WIDTH ANALYSIS
+=================================================================*/
+
+void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkPolyData> Surface) {
+
+    #ifdef DEBUG
+        printf("Calculating tubules width...\n");
+    #endif
+
+    vtkIdType N = Skeleton -> GetNumberOfPoints();
+    vtkSmartPointer<vtkDoubleArray> Width = vtkSmartPointer<vtkDoubleArray>::New();
+    Width -> SetName("Width");
+    Width -> SetNumberOfComponents(1);
+    Width -> SetNumberOfTuples(N);
+
+    #ifdef DEBUG
+        printf("\tGenerating point locator...\n");
+    #endif
+
+    vtkSmartPointer<vtkKdTreePointLocator> Tree = vtkSmartPointer<vtkKdTreePointLocator>::New();
+    Tree -> SetDataSet(Surface);
+    Tree -> BuildLocator();
+
+    int k, n = 3;
+    vtkIdType id, idk;
+    double r[3], rk[3], d;
+    vtkSmartPointer<vtkIdList> List = vtkSmartPointer<vtkIdList>::New();
+    
+    for (id = 0; id < N; id++) {
+        d = 0;
+        Skeleton -> GetPoint(id,r);
+        Tree -> FindClosestNPoints(n,r,List);
+        for (k = 0; k < n; k++) {
+            idk = List -> GetId(k);
+            Surface -> GetPoint(idk,rk);
+            d += sqrt( pow(r[0]-rk[0],2) + pow(r[1]-rk[1],2) + pow(r[2]-rk[2],2) );
+        }
+        d /= (double)n;
+        Width -> SetTuple1(id,2*d);
+
+    }
+    Width -> Modified();
+    Skeleton -> GetPointData() -> SetScalars(Width);
+
+}
+
+/* ================================================================
+   INTENSITY MAPPING
+=================================================================*/
+
+void MapImageIntensity(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkImageData> ImageData, int nneigh) {
+
+    vtkIdType N = Skeleton -> GetNumberOfPoints();
+    vtkSmartPointer<vtkDoubleArray> Intensity = vtkSmartPointer<vtkDoubleArray>::New();
+    Intensity -> SetName("Intensity");
+    Intensity -> SetNumberOfComponents(1);
+    Intensity -> SetNumberOfTuples(N);
+
+    vtkIdType id;
+    int x, y, z, k;
+    double v, r[3];
+    for (id = 0; id < N; id++) {
+        v = 0;
+        Skeleton -> GetPoint(id,r);
+        x = round(r[0] / _dxy);
+        y = round(r[1] / _dxy);
+        z = round(r[2] / _dz);
+        for (k = 0; k < nneigh; k++) {
+            v += ImageData -> GetScalarComponentAsDouble(x+ssdx_sort[k],y+ssdy_sort[k],z+ssdz_sort[k],0);
+        }
+        Intensity -> SetTuple1(id,v/((double)nneigh));
+    }
+    Intensity -> Modified();
+    Skeleton -> GetPointData() -> AddArray(Intensity);
+
+}
+
 
 /* ================================================================
    MULTISCALE VESSELNESS
@@ -1101,6 +1215,9 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     Filter -> SetValue(1,_div_threshold);
     Filter -> Update();
 
+    vtkSmartPointer<vtkPolyData> Surface = Filter -> GetOutput();
+    ScalePolyData(Surface);
+
     //SAVING SURFACE
     //--------------
 
@@ -1125,7 +1242,50 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //SKELETONIZATION
     //---------------
 
-    Thinning3D(Binary,FileName,attributes);
+    vtkSmartPointer<vtkPolyData> Skeleton = Thinning3D(Binary,FileName,attributes);
+    ScalePolyData(Skeleton);
+
+    if ( _width ) {
+
+        //TUBULES WIDTH
+        //-------------
+
+        EstimateTubuleWidth(Skeleton,Filter->GetOutput());
+
+        //INTENSITY PROFILE ALONG THE SKELETON
+        //------------------------------------
+
+        sprintf(_fullpath,"%s.tif",FileName);
+        TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
+        TIFFReader -> SetFileName(_fullpath);
+        TIFFReader -> Update();
+        vtkSmartPointer<vtkImageData> ImageData = TIFFReader -> GetOutput();
+
+        MapImageIntensity(Skeleton,ImageData,6);
+
+        vtkDataArray *W = Skeleton -> GetPointData() -> GetArray("Width");
+        vtkDataArray *I = Skeleton -> GetPointData() -> GetArray("Intensity");
+
+        vtkIdType p;
+        double length;
+        sprintf(_fullpath,"%s.width",FileName);
+        FILE *fw = fopen(_fullpath,"w");
+        for (vtkIdType edge = 0; edge < Skeleton -> GetNumberOfCells(); edge++) {
+            length = GetEdgeLength(edge,Skeleton);
+            for (vtkIdType id = 0; id < Skeleton -> GetCell(edge) -> GetNumberOfPoints(); id++) {
+                p = Skeleton -> GetCell(edge) -> GetPointId(id);
+                fprintf(fw,"%d\t%1.5f\t%1.5f\t%1.5f\n",(int)edge,length,W->GetTuple1(p),I->GetTuple1(p));
+            }
+        }
+        fclose(fw);
+
+    }
+
+    //SAVING SKELETON
+    //---------------
+
+    sprintf(_fullpath,"%s_skeleton.vtk",FileName);
+    SavePolyData(Skeleton,_fullpath);
 
     return 0;
 }
@@ -1180,6 +1340,9 @@ int main(int argc, char *argv[]) {
         }
         if (!strcmp(argv[i],"-checkonly")) {
             _checkonly = true;
+        }
+        if (!strcmp(argv[i],"-width")) {
+            _width = true;
         }
         if (!strcmp(argv[i],"-precision_off")) {
             _improve_skeleton_quality = false;

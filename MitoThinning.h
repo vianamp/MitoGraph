@@ -50,16 +50,23 @@
     extern double _div_threshold;
     extern bool _improve_skeleton_quality;
 
+    extern int ssdx_sort[26];
+    extern int ssdy_sort[26];
+    extern int ssdz_sort[26];
+
 	// Thinning algorithm based on the paper: "A 3D 6-subinteration thinning
 	// algorithm for extracting medial lines", by Kálman Palágyi and Attila
 	// Kuba.
-	int Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes);
+	vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes);
 
 	// Routine used to save an ImageData
 	void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[]);
 
 	// Routine used to save a PolyData
 	void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], bool scale = _scale_polydata_before_save);
+
+	// Calculate the length of a given edge.
+	double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
 
 	// Label connected components in Image. Results are stored
 	// in Volume as negative labels. The routine returns the total
