@@ -53,12 +53,22 @@
 	// Thinning algorithm based on the paper: "A 3D 6-subinteration thinning
 	// algorithm for extracting medial lines", by Kálman Palágyi and Attila
 	// Kuba.
-	int Thinning3D(vtkImageData *ImageData, const char FileName[], double *attributes);
+	int Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes);
 
 	// Routine used to save an ImageData
-	void SaveImageData(vtkImageData *Image, const char FileName[]);
+	void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[]);
 
 	// Routine used to save a PolyData
-	void SavePolyData(vtkPolyData *PolyData, const char FileName[], bool scale = _scale_polydata_before_save);
+	void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], bool scale = _scale_polydata_before_save);
+
+	// Label connected components in Image. Results are stored
+	// in Volume as negative labels. The routine returns the total
+	// number of connected components.
+	long int LabelConnectedComponents(vtkSmartPointer<vtkImageData> ImageData, vtkSmartPointer<vtkDataArray> Volume, std::vector<long int> &CSz, int ngbh, double threshold);
+
+	// Routine to delete all voxels located at boundaries of the
+	// image volume. Otherwise the algorithm will have problems
+	// checking the 3D neighborhood of those voxels.
+	void CleanImageBoundaries(vtkSmartPointer<vtkImageData> ImageData);
 
 #endif
