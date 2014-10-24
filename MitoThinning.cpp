@@ -94,13 +94,36 @@ bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K);
    I/O ROUTINES
 =================================================================*/
 
-void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[]) {
+void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], bool _resample) {
     #ifdef DEBUG
         printf("Saving ImageData File...\n");
     #endif
 
     vtkSmartPointer<vtkStructuredPointsWriter> writer = vtkSmartPointer<vtkStructuredPointsWriter>::New();
-    writer -> SetInputData(Image);
+
+    if (_resample) {
+        #ifdef DEBUG
+            printf("\tResampling data...%f\t%f\n",_dxy,_dz);
+        #endif
+        vtkSmartPointer<vtkImageResample> Resample = vtkSmartPointer<vtkImageResample>::New();
+        Resample -> SetInterpolationModeToLinear();
+        Resample -> SetDimensionality(3);
+        Resample -> SetInputData(Image);
+        Resample -> SetAxisMagnificationFactor(0,1.0);
+        Resample -> SetAxisMagnificationFactor(1,1.0);
+        Resample -> SetAxisMagnificationFactor(2,_dz/_dxy);
+        Resample -> Update();
+
+        vtkSmartPointer<vtkImageData> ImageResampled = Resample -> GetOutput();
+        ImageResampled -> SetSpacing(1,1,1);
+
+        writer -> SetInputData(ImageResampled);
+    } else {
+
+        writer -> SetInputData(Image);
+
+    }
+    
     writer -> SetFileType(VTK_BINARY);
     writer -> SetFileName(FileName);
     writer -> Write();

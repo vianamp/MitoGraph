@@ -20,6 +20,7 @@
 #include <vtkInformation.h>
 #include <vtkSphereSource.h>
 #include <vtkSmartPointer.h>
+#include <vtkImageResample.h>
 #include <vtkStructuredPoints.h>
 #include <vtkInformationVector.h>
 #include <vtkUnsignedCharArray.h>
@@ -60,7 +61,7 @@
 	vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes);
 
 	// Routine used to save an ImageData
-	void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[]);
+	void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], bool _resample = false);
 
 	// Routine used to save a PolyData
 	void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], bool scale = _scale_polydata_before_save);

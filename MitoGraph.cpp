@@ -63,6 +63,7 @@
     double _rad = 0.150;
     double _dxy, _dz = -1.0;
     bool _export_graph_files = true;
+    bool _export_image_resampled = false;
     bool _adaptive_threshold = false;
     bool _scale_polydata_before_save = true;
     bool _export_nodes_label = true;
@@ -303,6 +304,18 @@ void ExportMaxProjection(vtkSmartPointer<vtkImageData> Image, const char FileNam
 
 void ExportDetailedMaxProjection(const char FileName[]) {
 
+    // =======================================================================================
+    //                 |                |                 |                |                 |
+    //  Total MaxProj  |      First     |       Top       |       Top      |       Top       |
+    // (original tiff) |      Slice     |     8 slices    |     surface    |     skeleton    |
+    //                 |                |                 |                |                 |
+    // =======================================================================================
+    //                 |                |                 |                |                 |
+    //  Total MaxProj  |      Last      |      Bottom     |     Bottom     |     Bottom      |
+    //    (surface)    |      Slice     |     8 slices    |     surface    |     skeleton    |
+    //                 |                |                 |                |                 |
+    // =======================================================================================
+
     #ifdef DEBUG
         printf("Saving Detailed Max projection...\n");
     #endif
@@ -334,6 +347,18 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         PolyDaTaReader -> Update();
         vtkSmartPointer<vtkPolyData> Surface = PolyDaTaReader -> GetOutput();
 
+        // Loading Skeleton
+        sprintf(_fullpath,"%s_skeleton.vtk",FileName);
+        vtkSmartPointer<vtkPolyDataReader> PolyDaTaReaderSkell = vtkSmartPointer<vtkPolyDataReader>::New();
+        PolyDaTaReaderSkell -> SetFileName(_fullpath);
+        PolyDaTaReaderSkell -> Update();
+        vtkSmartPointer<vtkPolyData> Skeleton = PolyDaTaReaderSkell -> GetOutput();
+
+        #ifdef DEBUG
+            printf("\t#Points [%s] = %d\n",_fullpath,(int)Surface->GetNumberOfPoints());
+            printf("\t#Points [%s] = %d\n",_fullpath,(int)Skeleton->GetNumberOfPoints());
+        #endif
+
         // Stack Dimensions
         int *Dim = Image -> GetDimensions();
         
@@ -353,8 +378,8 @@ void ExportDetailedMaxProjection(const char FileName[]) {
 
         // Plane
         vtkSmartPointer<vtkImageData> Plane = vtkSmartPointer<vtkImageData>::New();
-        Plane -> SetDimensions(2*Dim[0],4*Dim[1],1);
-        vtkIdType N = 8 * Dim[0] * Dim[1];
+        Plane -> SetDimensions(5*Dim[0],2*Dim[1],1);
+        vtkIdType N = 10 * Dim[0] * Dim[1];
 
         // Scalar VEctor
         vtkSmartPointer<vtkUnsignedCharArray> MaxPArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
@@ -368,8 +393,7 @@ void ExportDetailedMaxProjection(const char FileName[]) {
             printf("Range = [%f,%f]\n",range[0],range[1]);
         #endif
 
-
-        //Max Projection
+        //Max Projection bottom
         int x, y, z;
         double v, vproj;
         for (x = Dim[0]; x--;) {
@@ -379,9 +403,10 @@ void ExportDetailedMaxProjection(const char FileName[]) {
                     v = Image -> GetScalarComponentAsFloat(x,y,z,0);
                     vproj = (v > vproj) ? v : vproj;
                 }
-                MaxPArray -> SetTuple1(Plane->FindPoint(x,y,0),(unsigned char)vproj);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+2*Dim[0],y,0),(unsigned char)vproj);
             }
         }
+        //Max Projection top
         for (x = Dim[0]; x--;) {
             for (y = Dim[1]; y--;) {
                 vproj = 0;
@@ -389,23 +414,45 @@ void ExportDetailedMaxProjection(const char FileName[]) {
                     v = Image -> GetScalarComponentAsFloat(x,y,z,0);
                     vproj = (v > vproj) ? v : vproj;
                 }
-                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+Dim[1],0),(unsigned char)vproj);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+2*Dim[0],y+Dim[1],0),(unsigned char)vproj);
             }
         }
 
         // Partial surface Projection
         double r[3];
-        vtkPoints *Points = Surface -> GetPoints();
-        for (vtkIdType id=0; id < Points -> GetNumberOfPoints(); id++) {
-            Points -> GetPoint(id,r);
+        for (vtkIdType id=0; id < Surface -> GetPoints() -> GetNumberOfPoints(); id++) {
+            Surface -> GetPoints() -> GetPoint(id,r);
             x = round(r[0]/_dxy);
             y = round(r[1]/_dxy);
             z = round(r[2]/_dz);
             if ( z >= zi && z <= zi+8 ) {
-                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[0],y,0),255);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+3*Dim[0],y,0),255);
             }
             if ( z >= zf-8 && z <= zf ) {
-                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[0],y+Dim[1],0),255);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+3*Dim[0],y+Dim[1],0),255);
+            }
+        }
+
+        // Complete surface Projection
+        for (vtkIdType id=0; id < Surface -> GetPoints() -> GetNumberOfPoints(); id++) {
+            Surface -> GetPoints() -> GetPoint(id,r);
+            x = round(r[0]/_dxy);
+            y = round(r[1]/_dxy);
+            z = round(r[2]/_dz);
+            MaxPArray -> SetTuple1(Plane->FindPoint(x,y,0),255);
+        }
+
+        // Partial skeleton Projection
+        for (vtkIdType id=0; id < Skeleton -> GetPoints() -> GetNumberOfPoints(); id++) {
+            Skeleton -> GetPoints() -> GetPoint(id,r);
+            x = round(r[0]/_dxy);
+            y = round(r[1]/_dxy);
+            z = round(r[2]/_dz);
+            if ( z >= zi && z <= zi+8 ) {
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+4*Dim[0],y,0),255);
+            }
+            if ( z >= zf-8 && z <= zf ) {
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+4*Dim[0],y+Dim[1],0),255);
             }
         }
 
@@ -417,26 +464,17 @@ void ExportDetailedMaxProjection(const char FileName[]) {
                     v = Image -> GetScalarComponentAsFloat(x,y,z,0);
                     vproj = (v > vproj) ? v : vproj;
                 }
-                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+2*Dim[1],0),(unsigned char)vproj);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+Dim[1],0),(unsigned char)vproj);
             }
-        }
-
-        // Complete surface Projection
-        for (vtkIdType id=0; id < Points -> GetNumberOfPoints(); id++) {
-            Points -> GetPoint(id,r);
-            x = round(r[0]/_dxy);
-            y = round(r[1]/_dxy);
-            z = round(r[2]/_dz);
-            MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[0],y+2*Dim[1],0),255);
         }
 
         //First and last slice
         for (x = Dim[0]; x--;) {
             for (y = Dim[1]; y--;) {
                 v = Image -> GetScalarComponentAsFloat(x,y,0,0);
-                MaxPArray -> SetTuple1(Plane->FindPoint(x,y+3*Dim[1],0),(unsigned char)v);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[1],y,0),(unsigned char)v);
                 v = Image -> GetScalarComponentAsFloat(x,y,Dim[2]-1,0);
-                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[1],y+3*Dim[1],0),(unsigned char)v);
+                MaxPArray -> SetTuple1(Plane->FindPoint(x+Dim[1],y+Dim[1],0),(unsigned char)v);
             }
         }
 
@@ -1103,14 +1141,11 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     int errlog = TIFFReader -> CanReadFile(_fullpath);
     // File cannot be opened
     if (!errlog) {
-        printf("File %s connot be opened.\n",_fullpath);
+        printf("File %s cannnot be opened.\n",_fullpath);
         return -1;
     }
     TIFFReader -> SetFileName(_fullpath);
     TIFFReader -> Update();
-
-    //DATA CONVERSION
-    //---------------
 
     int *Dim = TIFFReader -> GetOutput() -> GetDimensions();
 
@@ -1121,6 +1156,13 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
         printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",_sigmai,_dsigma,_sigmaf);
         printf("Threshold: %1.5f\n",_div_threshold);
     #endif
+
+    // Exporting resampled images
+
+    if (_export_image_resampled) {
+        sprintf(_fullpath,"%s_resampled.vtk",FileName);
+        SaveImageData(TIFFReader->GetOutput(),_fullpath,true);
+    }
 
     // Conversion 16-bit to 8-bit
     vtkSmartPointer<vtkImageData> Image = Convert16To8bit(TIFFReader->GetOutput());
@@ -1177,9 +1219,8 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     ImageEnhanced -> SetDimensions(Dim);
 
     #ifdef DEBUG
-        char _imdiv[256];
-        sprintf(_imdiv,"%s_div.vtk",FileName);
-        SaveImageData(ImageEnhanced,_imdiv);
+        sprintf(_fullpath,"%s_div.vtk",FileName);
+        SaveImageData(ImageEnhanced,_fullpath);
     #endif
 
     #ifdef DEBUG
@@ -1346,6 +1387,9 @@ int main(int argc, char *argv[]) {
         }
         if (!strcmp(argv[i],"-precision_off")) {
             _improve_skeleton_quality = false;
+        }
+        if (!strcmp(argv[i],"-export_image_resampled")) {
+            _export_image_resampled = true;
         }
     }
 
