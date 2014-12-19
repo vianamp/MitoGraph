@@ -39,10 +39,10 @@ void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes
 
 // Estimate the mitochondrial volume by using the skeleton
 // total length and assuming constant radius.
-void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes);
+//void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes);
 
 // Calculate the length of a given edge.
-double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
+//double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value given different of "value".
@@ -88,7 +88,11 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
 // Replace two edges A and B attached to a node of degree 2
 // with one edge C that corresponds to A + B. The degree of the
 // node is set to -1 and A and B are moreved from PolyData.
-bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K);
+bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, long int nedges_before_filtering, int *K);
+
+// After merging edges attached to nodes of degree 2, the original
+// edges must be deleted throught this routine.
+void RemoveCellsWithInvalidNodes(vtkSmartPointer<vtkPolyData> PolyData, int *K);
 
 /* ================================================================
    I/O ROUTINES
@@ -221,15 +225,15 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
         
             vtkSmartPointer<vtkSphereSource> Node = vtkSmartPointer<vtkSphereSource>::New();
             if (_scale_polydata_before_save) {
-                Node -> SetRadius(_dxy);
+                Node -> SetRadius(2*_dxy);
                 Node -> SetCenter(_dxy*r[0],_dxy*r[1],_dz*r[2]);
             } else {
                 Node -> SetRadius(2.0);
                 Node -> SetCenter(r[0],r[1],r[2]);
             }
 
-            Node -> SetThetaResolution(12);
-            Node -> SetPhiResolution(12);
+            Node -> SetThetaResolution(36);
+            Node -> SetPhiResolution(36);
             Node -> Update();
             Append -> AddInputData(Node->GetOutput());
             Append -> Update();
@@ -360,7 +364,7 @@ void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes
     }
     attributes[0] = nv * (_dxy * _dxy * _dz);
 }
-
+/*
 void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes) {
     double r1[3], r2[3], length = 0.0;
     vtkPoints *Points = PolyData -> GetPoints();
@@ -370,7 +374,7 @@ void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *
     attributes[1] = length;
     attributes[2] = length * (acos(-1.0)*pow(_rad,2));
 }
-
+*/
 double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
     double r1[3], r2[3];
     double length = 0.0;
@@ -908,15 +912,31 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
     PolyData -> Modified();
     PolyData -> BuildLinks();
 
+    long int nedges_before_filtering = PolyData -> GetNumberOfCells();
+
     #ifdef DEBUG
-        printf("\t#Edges before filtering = %lld\n",PolyData->GetNumberOfCells());
+        printf("\t#Edges before filtering = %ld\n",nedges_before_filtering);
+        char _fullpath[256];
+        sprintf(_fullpath,"%s_skeleton_raw.vtk",FileName);
+        SavePolyData(PolyData,_fullpath);
     #endif
 
     // PolyData filtering by removing degree-2 nodes. These nodes rise
     // for two reasons: 1) very short edges that are not detected,
     // although the bifurcation is detected. 2) Short loops that were
     // removed.
-    while (MergeEdgesOfDegree2Nodes(PolyData,K));
+
+    #ifdef DEBUG
+        printf("\t#Filtering...\n");
+    #endif
+
+    while (
+        MergeEdgesOfDegree2Nodes(PolyData,nedges_before_filtering,K)
+    );
+
+    #ifdef DEBUG
+        printf("\t#Creating new ids...\n");
+    #endif
 
     //Creating a list with final Ids of nodes after degree-2 nodes
     //deletetion.
@@ -924,6 +944,7 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
     long int *ValidId = new long int[NumberOfNodes];
     for (node = 0; node < NumberOfNodes; node++) {
         if (K[node] > 0) {
+            //printf("%d] - k = %d\n",(int)node,(int)K[node]);
             ValidId[node] = valid_id;
             valid_id++;
         } else {
@@ -942,12 +963,12 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
 
     ExportNodes(PolyData,NumberOfNodes,ValidId,FileName);
 
-    GetVolumeFromSkeletonLength(PolyData,attributes); // total length and skeleton-length volume
+    //GetVolumeFromSkeletonLength(PolyData,attributes); // total length and skeleton-length volume
 
     return PolyData;
 }
 
-bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K) {
+bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, long int nedges_before_filtering, int *K) {
 
     // Given this edge: (source) o---->----o (target), it's necessary
     // to check whether either source or target are nodes of degree 2.
