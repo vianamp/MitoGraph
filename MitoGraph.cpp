@@ -1264,6 +1264,15 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     }
     VSSS -> Modified();
 
+    #ifdef DEBUG
+        vtkSmartPointer<vtkImageData> ImageVess = vtkSmartPointer<vtkImageData>::New();
+        ImageVess -> GetPointData() -> SetScalars(VSSS);
+        ImageVess -> SetDimensions(Dim);
+
+        sprintf(_fullpath,"%s_vess.vtk",FileName);
+        SaveImageData(ImageVess,_fullpath);//BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),_fullpath);
+    #endif
+
     //DIVERGENCE FILTER
     //-----------------
 
