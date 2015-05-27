@@ -1,4 +1,4 @@
-// ==============================================================
+// ==================================================================
 // MitoGraph: Quantifying Mitochondrial Content in Living Cells
 // Written by Matheus P. Viana - vianamp@gmail.com - 2014.05.28
 //
@@ -13,9 +13,10 @@
 //
 //      - http://www.rafelski.com/susanne/Home.html
 //
-// A protocol paper describing how to use MitoGraph is also
-// coming soon.
-// ==============================================================
+// A protocol paper describing how to use MitoGraph is available in:
+// Quantifying mitochondrial content in living cells
+// http://www.sciencedirect.com/science/article/pii/S0091679X14000041
+// ==================================================================
 
 #include <list>
 #include <cmath>
@@ -1402,8 +1403,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 int main(int argc, char *argv[]) {     
 
     int i;
-    char _prefix[64];
-    char _impath[128];
+    char _impath[256];
     sprintf(_impath,"");
     double _sigmai = 1.00;
     double _sigmaf = 1.50;
@@ -1463,18 +1463,18 @@ int main(int argc, char *argv[]) {
     }
 
     // Generating list of files to run
-    char _cmd[256];
+    char _cmd[512];
     sprintf(_cmd,"ls %s*.tif | sed -e 's/.tif//' > %smitograph.files",_impath,_impath);
     system(_cmd);
 
-    char _tifffilename[256];
-    char _tifflistpath[128];
+    char _tifffilename[512];
+    char _tifflistpath[512];
     sprintf(_tifflistpath,"%smitograph.files",_impath);
     FILE *f = fopen(_tifflistpath,"r");
 
     if (_checkonly) {
 
-        while (fgets(_tifffilename,256, f) != NULL) {
+        while (fgets(_tifffilename,512, f) != NULL) {
             _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
 
             ExportDetailedMaxProjection(_tifffilename);
@@ -1487,8 +1487,8 @@ int main(int argc, char *argv[]) {
         double _dsigma = (_sigmaf-_sigmai) / (_nsigma-1);
 
         // Generating summary file and writing the header
-        char _summaryfilename[256];
-        char _individfilename[256];
+        char _summaryfilename[512];
+        char _individfilename[512];
         sprintf(_summaryfilename,"%ssummary.txt",_impath);
         FILE *fsummary = fopen(_summaryfilename,"w");
         if (_adaptive_threshold) {
@@ -1512,7 +1512,7 @@ int main(int argc, char *argv[]) {
         double *attributes = new double[7];
         sprintf(_tifflistpath,"%smitograph.files",_impath);
         FILE *f = fopen(_tifflistpath,"r");
-        while (fgets(_tifffilename,256, f) != NULL) {
+        while (fgets(_tifffilename,512, f) != NULL) {
             _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
 
             MultiscaleVesselness(_tifffilename,_sigmai,_dsigma,_sigmaf,attributes);
