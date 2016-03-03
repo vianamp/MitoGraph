@@ -6,7 +6,6 @@
 // Susanne Rafelski Lab, University of California Irvine
 // =====================================================================================================
 
-#include "ssThinning.h"
 #include "MitoThinning.h"
 
     int ssdx[26] = {-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1};

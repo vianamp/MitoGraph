@@ -18,47 +18,7 @@
 // http://www.sciencedirect.com/science/article/pii/S0091679X14000041
 // ==================================================================
 
-#include <list>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
-#include <vtkMath.h>
-#include <vtkPolyLine.h>
-#include <vtkCellArray.h>
-#include <vtkLongArray.h>
-#include <vtkImageData.h>
-#include <vtkDataArray.h>
-#include <vtkTransform.h>
-#include <vtkDataObject.h>
-#include <vtkFloatArray.h>
-#include <vtkVectorText.h>
-#include <vtkInformation.h>
-#include <vtkSphereSource.h>
-#include <vtkSmartPointer.h>
-#include <vtkStructuredPoints.h>
-#include <vtkInformationVector.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkUnsignedShortArray.h>
-#include <vtkStructuredPointsWriter.h>
-#include <vtkTransformPolyDataFilter.h>
-#include <vtkImageExtractComponents.h>
-#include <vtkStructuredPointsReader.h>
-#include <vtkImageGaussianSmooth.h>
-#include <vtkKdTreePointLocator.h>
-#include <vtkAppendPolyData.h>
-#include <vtkPolyDataReader.h>
-#include <vtkPolyDataWriter.h>
-#include <vtkContourFilter.h>
-#include <vtkDoubleArray.h>
-#include <vtkTIFFReader.h>
-#include <vtkPNGWriter.h>
-#include <vtkPointData.h>
-#include <vtkImageRFFT.h>
-#include <vtkImageCast.h>
-#include <vtkPoints.h>
-
+#include "ssThinning.h"
 #include "MitoThinning.h"
 
     double _rad = 0.150;
@@ -77,16 +37,20 @@
                                            // voxels were analysized.
 
 
-    //               |------06------|
-    //               |------------------------18------------------------|
-    //               |---------------------------------------26----------------------------------|
+    //                    |------06------|
+    //                    |------------------------18------------------------|
+    //                    |---------------------------------------26----------------------------------|
     int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
     int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
     int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
 
-// In order to acess the voxel (x,y,z) from ImageJ, I should use
-// GetId(x,(Dim[1]-1)-y,z,Dim);
-// Or change the volume orientation...
+    double GKernel[7][7] = {{0.000036,0.000363,0.001446,0.002291,0.001446,0.000363,0.000036},
+                            {0.000363,0.003676,0.014662,0.023226,0.014662,0.003676,0.000363},
+                            {0.001446,0.014662,0.058488,0.092651,0.058488,0.014662,0.001446},
+                            {0.002291,0.023226,0.092651,0.146768,0.092651,0.023226,0.002291},
+                            {0.001446,0.014662,0.058488,0.092651,0.058488,0.014662,0.001446},
+                            {0.000363,0.003676,0.014662,0.023226,0.014662,0.003676,0.000363},
+                            {0.000036,0.000363,0.001446,0.002291,0.001446,0.000363,0.000036}};
 
 /**========================================================
  Auxiliar functions
@@ -139,6 +103,12 @@ vtkSmartPointer<vtkImageData> BinarizeAndConvertDoubleToChar(vtkSmartPointer<vtk
 
 // Fill holes in the 3D image
 void FillHoles(vtkSmartPointer<vtkImageData> ImageData);
+
+// This routine uses a nearest neighbour filter to deblur the
+// 16bit original image before applying MitoGraph.
+// [1] - Qiang Wu Fatima A. Merchant Kenneth R. Castleman
+//       Microscope Image Processing (pg.340)
+// ????
 
 /* ================================================================
    I/O ROUTINES
@@ -253,6 +223,27 @@ void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData) {
         Points -> SetPoint(id,_dxy*r[0],_dxy*r[1],_dz*r[2]);
     }
     Points -> Modified();
+}
+
+double SampleBackgroundIntensity(vtkDataArray *Scalar) {
+    int N = 1000;
+    double v = 1E6;
+    vtkIdType i, j;
+    for (i = N; i--;) {
+        j = (vtkIdType) (rand() % (Scalar->GetNumberOfTuples()));
+        v = (Scalar->GetTuple1(j)<v) ? Scalar->GetTuple1(j) : v;
+    }
+    return v;
+}
+
+int PoissonGen(double mu) {
+    int k = 0;
+    double p = 1.0, L = exp(-mu);
+    do {
+        k++;
+        p *= (double)(rand()) / RAND_MAX;
+    } while (p>L);
+    return k;
 }
 
 /* ================================================================
@@ -689,6 +680,57 @@ void FillHoles(vtkSmartPointer<vtkImageData> ImageData) {
 
 }
 
+void Gaussian2DBlur(vtkSmartPointer<vtkImageData> Volume) {
+
+    int *Dim = Volume -> GetDimensions();
+    vtkSmartPointer<vtkImageData> VolumeBlurred = vtkSmartPointer<vtkImageData>::New();
+    VolumeBlurred -> DeepCopy(Volume);
+    
+    int i, j;
+    double v;
+    int x, y, z;
+    vtkIdType id;
+    for (z = Dim[2]; z--;) {    
+        for (x = 3; x < Dim[0]-3; x++) {
+            for (y = 3; y < Dim[1]-3; y++) {
+                v = 0.0;
+                for (i = -3; i <= 3; i++) {
+                    for (j = -3; j <= 3; j++) {
+                        id = Volume -> FindPoint(x+i,y+j,z);
+                        v += GKernel[i+3][j+3] * (Volume->GetPointData()->GetScalars()->GetTuple1(id));
+                    }
+                }
+                id = Volume -> FindPoint(x,y,z);
+                VolumeBlurred -> GetPointData() -> GetScalars() -> SetTuple1(id,v);
+            }
+        }
+    }
+    Volume -> DeepCopy(VolumeBlurred);
+}
+
+void NNDeblur(vtkSmartPointer<vtkImageData> Volume, vtkSmartPointer<vtkImageData> VolumeBlurred) {
+    int *Dim = Volume -> GetDimensions();
+    
+    int x, y, z;
+    vtkIdType id;
+    double v, vlower, vupper;
+    for (z = 1; z < Dim[2]-1; z++) {    
+        for (x = Dim[0]; x--;) {
+            for (y = Dim[1]; y--;) {
+                id = Volume -> FindPoint(x,y,z-1);
+                vlower = VolumeBlurred -> GetPointData() -> GetScalars() -> GetTuple1(id);
+                id = Volume -> FindPoint(x,y,z+1);
+                vupper = VolumeBlurred -> GetPointData() -> GetScalars() -> GetTuple1(id);
+                id = Volume -> FindPoint(x,y,z);
+                v = Volume -> GetPointData() -> GetScalars() -> GetTuple1(id);
+
+                v = v - 0.20 * ( vlower + vupper );
+                Volume -> GetPointData() -> GetScalars() -> SetTuple1(id, (v>0)?v:0.0 );
+            }
+        }
+    }
+
+}
 
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
@@ -1110,6 +1152,8 @@ void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<
 
 void MapImageIntensity(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkImageData> ImageData, int nneigh) {
 
+    int *Dim = ImageData -> GetDimensions();
+
     vtkIdType N = Skeleton -> GetNumberOfPoints();
     vtkSmartPointer<vtkDoubleArray> Intensity = vtkSmartPointer<vtkDoubleArray>::New();
     Intensity -> SetName("Intensity");
@@ -1126,7 +1170,8 @@ void MapImageIntensity(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vt
         y = round(r[1] / _dxy);
         z = round(r[2] / _dz);
         for (k = 0; k < nneigh; k++) {
-            v += ImageData -> GetScalarComponentAsDouble(x+ssdx_sort[k],y+ssdy_sort[k],z+ssdz_sort[k],0);
+            if ((x+ssdx_sort[k]>=0)&&(y+ssdy_sort[k]>=0)&&(z+ssdz_sort[k]>=0)&&(x+ssdx_sort[k]<Dim[0])&&(y+ssdy_sort[k]<Dim[1])&&(z+ssdz_sort[k]<Dim[2]))
+                v += ImageData -> GetScalarComponentAsDouble(x+ssdx_sort[k],y+ssdy_sort[k],z+ssdz_sort[k],0);
         }
         Intensity -> SetTuple1(id,v/((double)nneigh));
     }
@@ -1220,15 +1265,103 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
         SaveImageData(TIFFReader->GetOutput(),_fullpath,true);
     }
 
+    int x, y, z;
+    vtkIdType id;
+    vtkSmartPointer<vtkImageData> Image;
+
+    if ( Dim[2] == 1 ) {
+
+        double avg_bkgrd = SampleBackgroundIntensity(TIFFReader->GetOutput()->GetPointData()->GetScalars());
+
+        #ifdef DEBUG
+            printf("2D Image Detected...\n");
+            printf("\tAvg Background Intensity: %1.3f\n",avg_bkgrd);
+        #endif
+
+        double v;
+        int sz = 7;
+        Image = vtkSmartPointer<vtkImageData>::New();
+        Image -> SetDimensions(Dim[0],Dim[1],sz);
+        Image -> SetSpacing(1,1,1);
+        Image -> SetOrigin(0,0,0);
+        
+        vtkSmartPointer<vtkUnsignedShortArray> Scalar = vtkSmartPointer<vtkUnsignedShortArray>::New();
+        Scalar -> SetNumberOfComponents(1);
+        Scalar -> SetNumberOfTuples(Dim[0]*Dim[1]*sz);
+        Scalar -> FillComponent(0,avg_bkgrd);
+
+        for (x = 1; x < Dim[0]-1; x++) {
+            for (y = 1; y < Dim[1]-1; y++) {
+                for (z = 0; z < sz; z++) {
+                    if ( (z<2) || (z>sz-3) ) {
+                        v = avg_bkgrd + 0.1*PoissonGen(avg_bkgrd);
+                    } else {
+                        v = TIFFReader -> GetOutput() -> GetScalarComponentAsDouble(x,y,0,0);
+                    }
+                    id = Image -> FindPoint(x,y,z);
+                    Scalar -> SetTuple1(id,v);
+                }
+            }
+        }
+
+        Image -> GetPointData() -> SetScalars(Scalar);
+
+        Image -> Modified();
+
+    } else {
+
+        Image = TIFFReader -> GetOutput();
+
+    }
+
+    /* // TEST (NEED TO IMPROVE THE 2D CONVOLUTION PEFORMANCE )
+
+    sprintf(_fullpath,"%s_or.vtk",FileName);
+    SaveImageData(Image,_fullpath,false);
+
+    if (1) {
+        #ifdef DEBUG
+            printf("Nearest Neighbor Deblur...\n");
+        #endif
+
+        vtkSmartPointer<vtkImageData> VolumeBlurred = vtkSmartPointer<vtkImageData>::New();
+        VolumeBlurred -> DeepCopy(Image);
+
+        for (int i = 25; i--;) {
+            Gaussian2DBlur(VolumeBlurred);
+            printf("\t[%1.2f%%]\r",100.0-((100.0*i)/25));
+            fflush(stdout);
+        }
+
+        NNDeblur(Image,VolumeBlurred);
+
+        sprintf(_fullpath,"%s_db.vtk",FileName);
+        SaveImageData(Image,_fullpath,false);
+
+        return 0;
+
+    }
+    */
+
     // Conversion 16-bit to 8-bit
-    vtkSmartPointer<vtkImageData> Image = Convert16To8bit(TIFFReader->GetOutput());
+    Image = Convert16To8bit(Image);
+
+    Dim = Image -> GetDimensions();
+
+    #ifdef DEBUG
+        printf("MitoGraph V2.0 [DEBUG mode]\n");
+        printf("File name: %s\n",_fullpath);
+        printf("Volume dimensions: %dx%dx%d\n",Dim[0],Dim[1],Dim[2]);
+        printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",_sigmai,_dsigma,_sigmaf);
+        printf("Threshold: %1.5f\n",_div_threshold);
+    #endif
 
     if (!Image) printf("Format not supported.\n");
 
     //VESSELNESS
     //----------
 
-    vtkIdType id, N = Image -> GetNumberOfPoints();
+    vtkIdType N = Image -> GetNumberOfPoints();
 
     vtkSmartPointer<vtkDoubleArray> AUX1 = vtkSmartPointer<vtkDoubleArray>::New();
     vtkSmartPointer<vtkDoubleArray> AUX2 = vtkSmartPointer<vtkDoubleArray>::New();
@@ -1458,7 +1591,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (_dz<0) {
-        printf("Please, use -dxy and -dz to provide the pixel size.\n");
+        printf("Please, use -xy and -z to provide the pixel size.\n");
         return -1;
     }
 
@@ -1492,9 +1625,9 @@ int main(int argc, char *argv[]) {
         sprintf(_summaryfilename,"%ssummary.txt",_impath);
         FILE *fsummary = fopen(_summaryfilename,"w");
         if (_adaptive_threshold) {
-            fprintf(fsummary,"MitoGraph V2.1Beta [Adaptive Algorithm]\n");
+            fprintf(fsummary,"MitoGraph V2.5 [Adaptive Algorithm]\n");
         } else {
-            fprintf(fsummary,"MitoGraph V2.0\n");
+            fprintf(fsummary,"MitoGraph V2.5\n");
         }
         fprintf(fsummary,"Folder: %s\n",_impath);
         fprintf(fsummary,"Pixel size: -xy %1.4fum, -z %1.4fum\n",_dxy,_dz);
