@@ -6,21 +6,11 @@
 // Susanne Rafelski Lab, University of California Irvine
 // =====================================================================================================
 
-#include "ssThinning.h"
 #include "MitoThinning.h"
 
     int ssdx[26] = {-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1};
     int ssdy[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     int ssdz[26] = { 1, 1, 1, 0, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0,-1,-1,-1, 1, 1, 1, 0, 0, 0,-1,-1,-1};
-
-
-    //               |------06------|
-    //               |------------------------18------------------------|
-    //               |---------------------------------------26----------------------------------|
-    int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
-    int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
-    int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
-
 
 // Routine used to save .gnet and .coo files representing
 // the skeleton of the mitochondrial network.
@@ -48,10 +38,10 @@ void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes
 
 // Estimate the mitochondrial volume by using the skeleton
 // total length and assuming constant radius.
-void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes);
+//void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes);
 
 // Calculate the length of a given edge.
-double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
+//double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value given different of "value".
@@ -92,24 +82,51 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
 
 // Track all the nodes and edges of a 3D structured thinned by
 // the routine Thinning3D.
-int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes);
+vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes);
 
 // Replace two edges A and B attached to a node of degree 2
 // with one edge C that corresponds to A + B. The degree of the
 // node is set to -1 and A and B are moreved from PolyData.
-bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K);
+bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, long int nedges_before_filtering, int *K);
+
+// After merging edges attached to nodes of degree 2, the original
+// edges must be deleted throught this routine.
+void RemoveCellsWithInvalidNodes(vtkSmartPointer<vtkPolyData> PolyData, int *K);
 
 /* ================================================================
    I/O ROUTINES
 =================================================================*/
 
-void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[]) {
+void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], bool _resample) {
     #ifdef DEBUG
         printf("Saving ImageData File...\n");
     #endif
 
     vtkSmartPointer<vtkStructuredPointsWriter> writer = vtkSmartPointer<vtkStructuredPointsWriter>::New();
-    writer -> SetInputData(Image);
+
+    if (_resample) {
+        #ifdef DEBUG
+            printf("\tResampling data...%f\t%f\n",_dxy,_dz);
+        #endif
+        vtkSmartPointer<vtkImageResample> Resample = vtkSmartPointer<vtkImageResample>::New();
+        Resample -> SetInterpolationModeToLinear();
+        Resample -> SetDimensionality(3);
+        Resample -> SetInputData(Image);
+        Resample -> SetAxisMagnificationFactor(0,1.0);
+        Resample -> SetAxisMagnificationFactor(1,1.0);
+        Resample -> SetAxisMagnificationFactor(2,_dz/_dxy);
+        Resample -> Update();
+
+        vtkSmartPointer<vtkImageData> ImageResampled = Resample -> GetOutput();
+        ImageResampled -> SetSpacing(1,1,1);
+
+        writer -> SetInputData(ImageResampled);
+    } else {
+
+        writer -> SetInputData(Image);
+
+    }
+    
     writer -> SetFileType(VTK_BINARY);
     writer -> SetFileName(FileName);
     writer -> Write();
@@ -128,16 +145,6 @@ void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], 
     #ifdef DEBUG
         printf("\t#Points in PolyData file: %llu.\n",(vtkIdType)PolyData->GetNumberOfPoints());
     #endif
-
-    if (scale) {
-        double r[3];
-        vtkPoints *Points = PolyData -> GetPoints();
-        for (vtkIdType id = 0; id < Points -> GetNumberOfPoints(); id++) {
-            Points -> GetPoint(id,r);
-            Points -> SetPoint(id,_dxy*r[0],_dxy*r[1],_dz*r[2]);
-        }
-        Points -> Modified();
-    }
 
     vtkSmartPointer<vtkPolyDataWriter> Writer = vtkSmartPointer<vtkPolyDataWriter>::New();
     Writer -> SetFileType(VTK_BINARY);
@@ -217,15 +224,15 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
         
             vtkSmartPointer<vtkSphereSource> Node = vtkSmartPointer<vtkSphereSource>::New();
             if (_scale_polydata_before_save) {
-                Node -> SetRadius(_dxy);
+                Node -> SetRadius(2*_dxy);
                 Node -> SetCenter(_dxy*r[0],_dxy*r[1],_dz*r[2]);
             } else {
                 Node -> SetRadius(2.0);
                 Node -> SetCenter(r[0],r[1],r[2]);
             }
 
-            Node -> SetThetaResolution(12);
-            Node -> SetPhiResolution(12);
+            Node -> SetThetaResolution(36);
+            Node -> SetPhiResolution(36);
             Node -> Update();
             Append -> AddInputData(Node->GetOutput());
             Append -> Update();
@@ -356,7 +363,7 @@ void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes
     }
     attributes[0] = nv * (_dxy * _dxy * _dz);
 }
-
+/*
 void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes) {
     double r1[3], r2[3], length = 0.0;
     vtkPoints *Points = PolyData -> GetPoints();
@@ -366,7 +373,7 @@ void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *
     attributes[1] = length;
     attributes[2] = length * (acos(-1.0)*pow(_rad,2));
 }
-
+*/
 double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
     double r1[3], r2[3];
     double length = 0.0;
@@ -382,7 +389,7 @@ double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
    THINNING 3D
 =================================================================*/
 
-int Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes) {
+vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
         char _imbinary[256];
@@ -606,7 +613,7 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
     return -1;
 }
 
-int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes) {
+vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes) {
 
     #ifdef DEBUG
         char _imthinn[256];
@@ -904,15 +911,31 @@ int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], 
     PolyData -> Modified();
     PolyData -> BuildLinks();
 
+    long int nedges_before_filtering = PolyData -> GetNumberOfCells();
+
     #ifdef DEBUG
-        printf("\t#Edges before filtering = %lld\n",PolyData->GetNumberOfCells());
+        printf("\t#Edges before filtering = %ld\n",nedges_before_filtering);
+        char _fullpath[256];
+        sprintf(_fullpath,"%s_skeleton_raw.vtk",FileName);
+        SavePolyData(PolyData,_fullpath);
     #endif
 
     // PolyData filtering by removing degree-2 nodes. These nodes rise
     // for two reasons: 1) very short edges that are not detected,
     // although the bifurcation is detected. 2) Short loops that were
     // removed.
-    while (MergeEdgesOfDegree2Nodes(PolyData,K));
+
+    #ifdef DEBUG
+        printf("\t#Filtering...\n");
+    #endif
+
+    while (
+        MergeEdgesOfDegree2Nodes(PolyData,nedges_before_filtering,K)
+    );
+
+    #ifdef DEBUG
+        printf("\t#Creating new ids...\n");
+    #endif
 
     //Creating a list with final Ids of nodes after degree-2 nodes
     //deletetion.
@@ -920,6 +943,7 @@ int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], 
     long int *ValidId = new long int[NumberOfNodes];
     for (node = 0; node < NumberOfNodes; node++) {
         if (K[node] > 0) {
+            //printf("%d] - k = %d\n",(int)node,(int)K[node]);
             ValidId[node] = valid_id;
             valid_id++;
         } else {
@@ -938,18 +962,12 @@ int Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], 
 
     ExportNodes(PolyData,NumberOfNodes,ValidId,FileName);
 
-    GetVolumeFromSkeletonLength(PolyData,attributes); // total length and skeleton-length volume
+    //GetVolumeFromSkeletonLength(PolyData,attributes); // total length and skeleton-length volume
 
-    char _fullpath[256];
-    sprintf(_fullpath,"%s_skeleton.vtk",FileName);
-    SavePolyData(PolyData,_fullpath);
-
-    //@FIX ME: Expand edges and nodes with degree zero.
-
-    return 1;
+    return PolyData;
 }
 
-bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, int *K) {
+bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, long int nedges_before_filtering, int *K) {
 
     // Given this edge: (source) o---->----o (target), it's necessary
     // to check whether either source or target are nodes of degree 2.

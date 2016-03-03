@@ -1,9 +1,7 @@
 #ifndef SSTHINNING_H
 #define SSTHINNING_H
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
+#include "includes.h"
 
 	//===========================================================================
 	//
