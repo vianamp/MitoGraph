@@ -20,7 +20,7 @@ void ExportGraphFiles(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, co
 // little speres located at the junctions (nodes) coordinates
 // and might have the nodes label depending on if the variable
 // export_node_labels is true or false.
-void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, const char Prefix[]);
+void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, _mitoObject *mitoObject);
 
 // Routine used to check whether a voxel is locates at the border
 // of the binary image or not. A border voxel is defined as those
@@ -34,7 +34,7 @@ void SmoothEdgesCoordinates(vtkSmartPointer<vtkPolyData> PolyData, double sigma)
 
 // Estimate the mitochondrial volume by counting the number of
 // pixels in the binary image used as input for thinning.
-void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes);
+void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, std::vector<attribute> *Atts);
 
 // Estimate the mitochondrial volume by using the skeleton
 // total length and assuming constant radius.
@@ -82,7 +82,7 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
 
 // Track all the nodes and edges of a 3D structured thinned by
 // the routine Thinning3D.
-vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes);
+vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, _mitoObject *mitoObject);
 
 // Replace two edges A and B attached to a node of degree 2
 // with one edge C that corresponds to A + B. The degree of the
@@ -136,10 +136,10 @@ void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], b
     #endif
 }
 
-void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], bool scale) {
+void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[]) {
 
     #ifdef DEBUG
-        printf("Saving PolyData from XYZ list...\n");
+        printf("Saving PolyData...\n");
     #endif
 
     #ifdef DEBUG
@@ -201,7 +201,7 @@ void ExportGraphFiles(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, lo
 
 }
 
-void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, const char Prefix[]) {
+void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long int *ValidId, _mitoObject *mitoObject) {
     
     #ifdef DEBUG
         if (_export_nodes_label) {
@@ -225,10 +225,10 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
             vtkSmartPointer<vtkSphereSource> Node = vtkSmartPointer<vtkSphereSource>::New();
             if (_scale_polydata_before_save) {
                 Node -> SetRadius(2*_dxy);
-                Node -> SetCenter(_dxy*r[0],_dxy*r[1],_dz*r[2]);
+                Node -> SetCenter(_dxy*(r[0]+mitoObject->Ox),_dxy*(r[1]+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
             } else {
                 Node -> SetRadius(2.0);
-                Node -> SetCenter(r[0],r[1],r[2]);
+                Node -> SetCenter(r[0]+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
             }
 
             Node -> SetThetaResolution(36);
@@ -245,10 +245,10 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
 
                 vtkSmartPointer<vtkTransform> T = vtkSmartPointer<vtkTransform>::New();
                 if (_scale_polydata_before_save) {
-                    T -> Translate(_dxy*(r[0]+1),_dxy*(r[1]+1),_dz*r[2]);
+                    T -> Translate(_dxy*(r[0]+1+mitoObject->Ox),_dxy*(r[1]+1+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
                     T -> Scale(2*_dxy,2*_dxy,1);
                 } else {
-                    T -> Translate(r[0]+2,r[1],r[2]);
+                    T -> Translate(r[0]+2+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
                     T -> Scale(2,2,1);
                 }
 
@@ -263,11 +263,8 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
         }
 
     }
-
-    char _fullpath[256];
-    sprintf(_fullpath,"%s_nodes.vtk",Prefix);
     
-    SavePolyData(Append->GetOutput(),_fullpath,false);
+    SavePolyData(Append->GetOutput(),(mitoObject->FileName+"_nodes.vtk").c_str());
 }
 
 
@@ -354,14 +351,15 @@ void SmoothEdgesCoordinates(vtkSmartPointer<vtkPolyData> PolyData, double sigma)
     PolyData -> Modified();
 }
 
-void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, double *attributes) {
+void GetVolumeFromVoxels(vtkSmartPointer<vtkImageData> Image, std::vector<attribute> *Atts) {
     double v;
     unsigned long int nv = 0;
     for (vtkIdType id=Image->GetNumberOfPoints();id--;) {
         v = Image -> GetPointData() -> GetScalars() -> GetTuple1(id);
         if (v) nv++;
     }
-    attributes[0] = nv * (_dxy * _dxy * _dz);
+    attribute newAtt = {"Volume from voxels",nv * (_dxy * _dxy * _dz)};
+    Atts -> push_back(newAtt);
 }
 /*
 void GetVolumeFromSkeletonLength(vtkSmartPointer<vtkPolyData> PolyData, double *attributes) {
@@ -389,16 +387,14 @@ double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
    THINNING 3D
 =================================================================*/
 
-vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes) {
+vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, _mitoObject *mitoObject) {
 
     #ifdef DEBUG
-        char _imbinary[256];
-        sprintf(_imbinary,"%s_binary.vtk",FileName);
-        SaveImageData(ImageData,_imbinary);
+        SaveImageData(ImageData,(mitoObject->FileName+"_binary.vtk").c_str());
     #endif
 
     vtkIdType N = ImageData -> GetNumberOfPoints();
-    GetVolumeFromVoxels(ImageData,attributes);   //surface-based volume
+    GetVolumeFromVoxels(ImageData,&mitoObject->attributes);
 
     int x, y, z;
     double r[3], v, vl;
@@ -472,7 +468,7 @@ vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData,
     OnTheSurface.clear();
     ToBeDeleted.clear();
 
-    return Skeletonization(ImageData,FileName,attributes);
+    return Skeletonization(ImageData,mitoObject);
 
 }
 
@@ -613,12 +609,10 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
     return -1;
 }
 
-vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, const char FileName[], double *attributes) {
+vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, _mitoObject *mitoObject) {
 
     #ifdef DEBUG
-        char _imthinn[256];
-        sprintf(_imthinn,"%s_thinned.vtk",FileName);
-        SaveImageData(Image,_imthinn);
+        SaveImageData(Image,(mitoObject->FileName+"_thinned.vtk").c_str());
     #endif
 
     double r[3];
@@ -915,9 +909,7 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
 
     #ifdef DEBUG
         printf("\t#Edges before filtering = %ld\n",nedges_before_filtering);
-        char _fullpath[256];
-        sprintf(_fullpath,"%s_skeleton_raw.vtk",FileName);
-        SavePolyData(PolyData,_fullpath);
+        SavePolyData(PolyData,(mitoObject->FileName+"_skeleton_raw.vtk").c_str());
     #endif
 
     // PolyData filtering by removing degree-2 nodes. These nodes rise
@@ -958,11 +950,9 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
 
     SmoothEdgesCoordinates(PolyData,3);
 
-    if (_export_graph_files) ExportGraphFiles(PolyData,NumberOfNodes,ValidId,FileName);
+    if (_export_graph_files) ExportGraphFiles(PolyData,NumberOfNodes,ValidId,mitoObject->FileName.c_str());
 
-    ExportNodes(PolyData,NumberOfNodes,ValidId,FileName);
-
-    //GetVolumeFromSkeletonLength(PolyData,attributes); // total length and skeleton-length volume
+    ExportNodes(PolyData,NumberOfNodes,ValidId,mitoObject);
 
     return PolyData;
 }
