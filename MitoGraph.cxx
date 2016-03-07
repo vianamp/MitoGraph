@@ -36,6 +36,7 @@
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
 
+    std::string MITOGRAPH_VERSION = "V2.5";
 
     //                    |------06------|
     //                    |------------------------18------------------------|
@@ -86,7 +87,10 @@ double FrobeniusNorm(double M[3][3]);
 
 // This routine scales the polydata points to the correct dimension
 // given by parameters _dxy and _dz.
-void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData);
+void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject *mitoObject);
+
+// Stores all files with a given extension in a vector
+int ScanFolderForThisExtension(const char _impath[], const char ext[], std::vector<std::string> List);
 
 /* ================================================================
    IMAGE TRANSFORM
@@ -121,7 +125,10 @@ void ExportMaxProjection(vtkSmartPointer<vtkImageData> Image, const char FileNam
 // Export maximum projection of bottom and top parts of
 // a given Tiff image as a PNG file as well as the polydata
 // surface points
-void ExportDetailedMaxProjection(const char FileName[]);
+void ExportDetailedMaxProjection(_mitoObject *mitoObject);
+
+// Export results in global as well as individual files
+void DumpResults(_mitoObject mitoObject);
 
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
@@ -141,7 +148,7 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData
 void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
 
 // Calculate the vesselness over a range of different scales
-int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf, double *attributes);
+int MultiscaleVesselness(_mitoObject *mitoObject);
 
 /* ================================================================
    DIVERGENCE FILTER
@@ -157,7 +164,7 @@ void GetDivergenceFilter(int *Dim, vtkSmartPointer<vtkDoubleArray> Scalars);
 
 // Approximation of tubule width by the distance of the skeleton
 // to the closest point over the surface.
-void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkPolyData> Surface, double *attributes);
+void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkPolyData> Surface, _mitoObject *mitoObject);
 
 /* ================================================================
    INTENSITY MAPPING
@@ -215,12 +222,12 @@ double FrobeniusNorm(double M[3][3]) {
     return sqrt(f);
 }
 
-void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData) {
+void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject *mitoObject) {
     double r[3];
     vtkPoints *Points = PolyData -> GetPoints();
     for (vtkIdType id = 0; id < Points -> GetNumberOfPoints(); id++) {
         Points -> GetPoint(id,r);
-        Points -> SetPoint(id,_dxy*r[0],_dxy*r[1],_dz*r[2]);
+        Points -> SetPoint(id,_dxy*(r[0]+mitoObject->Ox),_dxy*(r[1]+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
     }
     Points -> Modified();
 }
@@ -244,6 +251,29 @@ int PoissonGen(double mu) {
         p *= (double)(rand()) / RAND_MAX;
     } while (p>L);
     return k;
+}
+
+int ScanFolderForThisExtension(const char _root[], const char ext[], std::vector<std::string> *List) {
+    DIR *dir;
+    int ext_p;
+    struct dirent *ent;
+    std::string _dir_name;
+    if ((dir = opendir (_root)) != NULL) {
+      while ((ent = readdir (dir)) != NULL) {
+        _dir_name = std::string(ent->d_name);
+        ext_p = (int)_dir_name.find(std::string(ext));
+        if (ext_p > 0) {
+            #ifdef DEBUG
+                printf("File found: %s\n",_dir_name.c_str());
+            #endif
+            List -> push_back(std::string(_root)+_dir_name.substr(0,ext_p));
+        }
+      }
+      closedir (dir);
+    } else {
+      return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
 }
 
 /* ================================================================
@@ -294,7 +324,7 @@ void ExportMaxProjection(vtkSmartPointer<vtkImageData> Image, const char FileNam
 
 }
 
-void ExportDetailedMaxProjection(const char FileName[]) {
+void ExportDetailedMaxProjection(_mitoObject *mitoObject) {
 
     // =======================================================================================
     //                 |                |                 |                |                 |
@@ -312,20 +342,18 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         printf("Saving Detailed Max projection...\n");
     #endif
 
-    char _fullpath[256];
-    sprintf(_fullpath,"%s.tif",FileName);
-
     vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
-    int errlog = TIFFReader -> CanReadFile(_fullpath);
+    int errlog = TIFFReader -> CanReadFile((mitoObject->FileName+".tif").c_str());
     // File cannot be opened
     if (!errlog) {
 
-        printf("File %s connot be opened.\n",_fullpath);
+        printf("File %s connot be opened.\n",(mitoObject->FileName+".tif").c_str());
 
     } else {
 
         // Loading TIFF File
-        TIFFReader -> SetFileName(_fullpath);
+        TIFFReader -> SetFileName((mitoObject->FileName+".tif").c_str());
+        TIFFReader -> SetOrientationType(1);
         TIFFReader -> Update();
         vtkSmartPointer<vtkImageData> Image = TIFFReader -> GetOutput();
 
@@ -333,22 +361,20 @@ void ExportDetailedMaxProjection(const char FileName[]) {
         Image = Convert16To8bit(Image);
 
         // Loading PolyData Surface
-        sprintf(_fullpath,"%s_surface.vtk",FileName);
         vtkSmartPointer<vtkPolyDataReader> PolyDaTaReader = vtkSmartPointer<vtkPolyDataReader>::New();
-        PolyDaTaReader -> SetFileName(_fullpath);
+        PolyDaTaReader -> SetFileName((mitoObject->FileName+"_mitosurface.vtk").c_str());
         PolyDaTaReader -> Update();
         vtkSmartPointer<vtkPolyData> Surface = PolyDaTaReader -> GetOutput();
 
         // Loading Skeleton
-        sprintf(_fullpath,"%s_skeleton.vtk",FileName);
         vtkSmartPointer<vtkPolyDataReader> PolyDaTaReaderSkell = vtkSmartPointer<vtkPolyDataReader>::New();
-        PolyDaTaReaderSkell -> SetFileName(_fullpath);
+        PolyDaTaReaderSkell -> SetFileName((mitoObject->FileName+"_skeleton.vtk").c_str());
         PolyDaTaReaderSkell -> Update();
         vtkSmartPointer<vtkPolyData> Skeleton = PolyDaTaReaderSkell -> GetOutput();
 
         #ifdef DEBUG
-            printf("\t#Points [%s] = %d\n",_fullpath,(int)Surface->GetNumberOfPoints());
-            printf("\t#Points [%s] = %d\n",_fullpath,(int)Skeleton->GetNumberOfPoints());
+            printf("\t#Points [%s] = %d\n",(mitoObject->FileName+"_mitosurface.vtk").c_str(),(int)Surface->GetNumberOfPoints());
+            printf("\t#Points [%s] = %d\n",(mitoObject->FileName+"_skeleton.vtk").c_str(),(int)Skeleton->GetNumberOfPoints());
         #endif
 
         // Stack Dimensions
@@ -470,26 +496,41 @@ void ExportDetailedMaxProjection(const char FileName[]) {
             }
         }
 
-
         MaxPArray -> Modified();
 
         Plane -> GetPointData() -> SetScalars(MaxPArray);
 
-        sprintf(_fullpath,"%s_detailed.png",FileName);
-
         // Saving PNG File
         vtkSmartPointer<vtkPNGWriter> PNGWriter = vtkSmartPointer<vtkPNGWriter>::New();
-        PNGWriter -> SetFileName(_fullpath);
+        PNGWriter -> SetFileName((mitoObject->FileName+"_detailed.png").c_str());
         PNGWriter -> SetFileDimensionality(2);
         PNGWriter -> SetCompressionLevel(0);
         PNGWriter -> SetInputData(Plane);
         PNGWriter -> Write();
+
+        printf("%s\t[done]\n",mitoObject->FileName.c_str());
 
     }
 
     #ifdef DEBUG
         printf("File Saved!\n");
     #endif
+
+}
+
+void DumpResults(const _mitoObject mitoObject) {
+
+    // Saving network attributes in the individual file
+    FILE *findv = fopen((mitoObject.FileName+".mitograph").c_str(),"w");
+    for (int i = 0; i < mitoObject.attributes.size(); i++)
+        fprintf(findv,"%s\t",mitoObject.attributes[i].name.c_str());
+    fprintf(findv,"\n");
+    for (int i = 0; i < mitoObject.attributes.size(); i++)
+        fprintf(findv,"%1.5f\t",mitoObject.attributes[i].value);
+    fclose(findv);
+
+    // Also printing on the screen
+    printf("%s\t[done]\n",mitoObject.FileName.c_str());
 
 }
 
@@ -1096,7 +1137,7 @@ void GetDivergenceFilter(int *Dim, vtkSmartPointer<vtkDoubleArray> Scalars) {
    WIDTH ANALYSIS
 =================================================================*/
 
-void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkPolyData> Surface, double *attributes) {
+void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vtkPolyData> Surface, _mitoObject *mitoObject) {
 
     #ifdef DEBUG
         printf("Calculating tubules width...\n");
@@ -1141,8 +1182,10 @@ void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<
     Width -> Modified();
     Skeleton -> GetPointData() -> SetScalars(Width);
 
-    attributes[3] = av_w / N;
-    attributes[4] = sqrt(sd_w/N - (av_w/N)*(av_w/N));
+    attribute newAtt_1 = {"Average width (um)",av_w / N};
+    mitoObject -> attributes.push_back(newAtt_1);
+    attribute newAtt_2 = {"Std width (um)",sqrt(sd_w/N - (av_w/N)*(av_w/N))};
+    mitoObject -> attributes.push_back(newAtt_2);
 
 }
 
@@ -1184,7 +1227,7 @@ void MapImageIntensity(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<vt
    WIDTH-CORRECTED VOLUME
 =================================================================*/
 
-void GetVolumeFromSkeletonLengthAndWidth(vtkSmartPointer<vtkPolyData> PolyData, double *attributes) {
+void GetVolumeFromSkeletonLengthAndWidth(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject *mitoObject) {
     double h, r1[3], r2[3], R1, R2, volume = 0.0, length = 0.0;
     vtkPoints *Points = PolyData -> GetPoints();
     for (vtkIdType edge=PolyData->GetNumberOfCells();edge--;) {
@@ -1198,9 +1241,10 @@ void GetVolumeFromSkeletonLengthAndWidth(vtkSmartPointer<vtkPolyData> PolyData, 
             volume += 3.141592 / 3.0 * h * (R1*R1+R2*R2+R1*R2);
         }
     }
-    attributes[1] = length;
-    attributes[2] = length * (acos(-1.0)*pow(_rad,2));
-    //attributes[3] = volume; // Validation needed
+    attribute newAtt_1 = {"Total length (um)",length};
+    mitoObject -> attributes.push_back(newAtt_1);
+    attribute newAtt_2 = {"Volume from length (um3)",length * (acos(-1.0)*pow(_rad,2))};
+    mitoObject -> attributes.push_back(newAtt_2);
 }
 
 
@@ -1208,7 +1252,7 @@ void GetVolumeFromSkeletonLengthAndWidth(vtkSmartPointer<vtkPolyData> PolyData, 
    TOPOLOGICAL ATTRIBUTES FROM SKELETON
 =================================================================*/
 
-void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, double *attributes) {
+void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject *mitoObject) {
     long int n, k;
     std::list<vtkIdType> Endpoints;
     for (vtkIdType edge=PolyData->GetNumberOfCells();edge--;) {
@@ -1225,94 +1269,114 @@ void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, double *att
         ne += (k==1) ? 1 : 0;
         nb += (k>=3) ? 1 : 0;
     }
-    attributes[5] = ne;
-    attributes[6] = nb;
+    attribute newAtt_1 = {"#End points",ne};
+    mitoObject -> attributes.push_back(newAtt_1);
+    attribute newAtt_2 = {"#Bifurcations",nb};
+    mitoObject -> attributes.push_back(newAtt_2);
+
 }
 
 /* ================================================================
    MULTISCALE VESSELNESS
 =================================================================*/
 
-int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, double _sigmaf, double *attributes) {     
+int MultiscaleVesselness(_mitoObject *mitoObject) {     
 
-    // Loading multi-paged TIFF file (Supported by VTK 6.2 and higher)
-    char _fullpath[256];
-    sprintf(_fullpath,"%s.tif",FileName);
-    vtkSmartPointer<vtkTIFFReader> TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
-    int errlog = TIFFReader -> CanReadFile(_fullpath);
-    // File cannot be opened
-    if (!errlog) {
-        printf("File %s cannnot be opened.\n",_fullpath);
-        return -1;
-    }
-    TIFFReader -> SetFileName(_fullpath);
-    TIFFReader -> Update();
-
-    int *Dim = TIFFReader -> GetOutput() -> GetDimensions();
-
-    #ifdef DEBUG
-        printf("MitoGraph V2.0 [DEBUG mode]\n");
-        printf("File name: %s\n",_fullpath);
-        printf("Volume dimensions: %dx%dx%d\n",Dim[0],Dim[1],Dim[2]);
-        printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",_sigmai,_dsigma,_sigmaf);
-        printf("Threshold: %1.5f\n",_div_threshold);
-    #endif
-
-    // Exporting resampled images
-
-    if (_export_image_resampled) {
-        sprintf(_fullpath,"%s_resampled.vtk",FileName);
-        SaveImageData(TIFFReader->GetOutput(),_fullpath,true);
-    }
-
-    int x, y, z;
     vtkIdType id;
+    int x, y, z, *Dim;
     vtkSmartPointer<vtkImageData> Image;
+    vtkSmartPointer<vtkTIFFReader> TIFFReader;
+    vtkSmartPointer<vtkStructuredPointsReader> STRUCReader;
 
-    if ( Dim[2] == 1 ) {
+    if ( mitoObject->Type == "TIF" ) {
 
-        double avg_bkgrd = SampleBackgroundIntensity(TIFFReader->GetOutput()->GetPointData()->GetScalars());
+        // Loading multi-paged TIFF file (Supported by VTK 6.2 and higher)
+        TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
+        int errlog = TIFFReader -> CanReadFile((mitoObject->FileName+".tif").c_str());
+        // File cannot be opened
+        if ( !errlog ) {
+            printf("File %s cannnot be opened.\n",(mitoObject->FileName+".tif").c_str());
+            return -1;
+        }
+        TIFFReader -> SetFileName((mitoObject->FileName+".tif").c_str());
+        TIFFReader -> SetOrientationType(1);
+        TIFFReader -> Update();
 
-        #ifdef DEBUG
-            printf("2D Image Detected...\n");
-            printf("\tAvg Background Intensity: %1.3f\n",avg_bkgrd);
-        #endif
+        Dim = TIFFReader -> GetOutput() -> GetDimensions();
 
-        double v;
-        int sz = 7;
-        Image = vtkSmartPointer<vtkImageData>::New();
-        Image -> SetDimensions(Dim[0],Dim[1],sz);
-        Image -> SetSpacing(1,1,1);
-        Image -> SetOrigin(0,0,0);
-        
-        vtkSmartPointer<vtkUnsignedShortArray> Scalar = vtkSmartPointer<vtkUnsignedShortArray>::New();
-        Scalar -> SetNumberOfComponents(1);
-        Scalar -> SetNumberOfTuples(Dim[0]*Dim[1]*sz);
-        Scalar -> FillComponent(0,avg_bkgrd);
+        // Exporting resampled images
 
-        for (x = 1; x < Dim[0]-1; x++) {
-            for (y = 1; y < Dim[1]-1; y++) {
-                for (z = 0; z < sz; z++) {
-                    if ( (z<2) || (z>sz-3) ) {
-                        v = avg_bkgrd + 0.1*PoissonGen(avg_bkgrd);
-                    } else {
-                        v = TIFFReader -> GetOutput() -> GetScalarComponentAsDouble(x,y,0,0);
-                    }
-                    id = Image -> FindPoint(x,y,z);
-                    Scalar -> SetTuple1(id,v);
-                }
-            }
+        if ( _export_image_resampled ) {
+            SaveImageData(TIFFReader->GetOutput(),(mitoObject->FileName+"_resampled.vtk").c_str(),true);
         }
 
-        Image -> GetPointData() -> SetScalars(Scalar);
+        if ( Dim[2] == 1 ) {
 
-        Image -> Modified();
+            double avg_bkgrd = SampleBackgroundIntensity(TIFFReader->GetOutput()->GetPointData()->GetScalars());
+
+            #ifdef DEBUG
+                printf("2D Image Detected...\n");
+                printf("\tAvg Background Intensity: %1.3f\n",avg_bkgrd);
+            #endif
+
+            double v;
+            int sz = 7;
+            Image = vtkSmartPointer<vtkImageData>::New();
+            Image -> SetDimensions(Dim[0],Dim[1],sz);
+            Image -> SetSpacing(1,1,1);
+            Image -> SetOrigin(0,0,0);
+            
+            vtkSmartPointer<vtkUnsignedShortArray> Scalar = vtkSmartPointer<vtkUnsignedShortArray>::New();
+            Scalar -> SetNumberOfComponents(1);
+            Scalar -> SetNumberOfTuples(Dim[0]*Dim[1]*sz);
+            Scalar -> FillComponent(0,avg_bkgrd);
+
+            for (x = 1; x < Dim[0]-1; x++) {
+                for (y = 1; y < Dim[1]-1; y++) {
+                    for (z = 0; z < sz; z++) {
+                        if ( (z<2) || (z>sz-3) ) {
+                            v = avg_bkgrd + 0.1*PoissonGen(avg_bkgrd);
+                        } else {
+                            v = TIFFReader -> GetOutput() -> GetScalarComponentAsDouble(x,y,0,0);
+                        }
+                        id = Image -> FindPoint(x,y,z);
+                        Scalar -> SetTuple1(id,v);
+                    }
+                }
+            }
+
+            Image -> GetPointData() -> SetScalars(Scalar);
+
+            Image -> Modified();
+
+        } else {
+
+            Image = TIFFReader -> GetOutput();
+
+        }
+
+    } else if ( mitoObject->Type == "VTK" ){
+
+        STRUCReader = vtkSmartPointer<vtkStructuredPointsReader>::New();
+        STRUCReader -> SetFileName((mitoObject->FileName+"-mitovolume.vtk").c_str());
+        STRUCReader -> Update();
+
+        Image = STRUCReader -> GetOutput();
 
     } else {
 
-        Image = TIFFReader -> GetOutput();
+        printf("Format not recognized.\n");
+        return EXIT_FAILURE;
 
     }
+
+    // Shifting the Stack to (0,0,0) and storing the
+    // original origin in mitoObject->
+    double *Origin = Image -> GetOrigin();
+    mitoObject->Ox = Origin[0];
+    mitoObject->Oy = Origin[1];
+    mitoObject->Oz = Origin[2];
+    Image -> SetOrigin(0,0,0);
 
     /* // TEST (NEED TO IMPROVE THE 2D CONVOLUTION PEFORMANCE )
 
@@ -1349,10 +1413,10 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     Dim = Image -> GetDimensions();
 
     #ifdef DEBUG
-        printf("MitoGraph V2.0 [DEBUG mode]\n");
-        printf("File name: %s\n",_fullpath);
+        printf("MitoGraph %s [DEBUG mode]\n",MITOGRAPH_VERSION.c_str());
+        printf("File name: %s\n",mitoObject->FileName.c_str());
         printf("Volume dimensions: %dx%dx%d\n",Dim[0],Dim[1],Dim[2]);
-        printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",_sigmai,_dsigma,_sigmaf);
+        printf("Scales to run: [%1.3f:%1.3f:%1.3f]\n",mitoObject->_sigmai,mitoObject->_dsigma,mitoObject->_sigmaf);
         printf("Threshold: %1.5f\n",_div_threshold);
     #endif
 
@@ -1379,7 +1443,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     double sigma, vn, vo;
 
-    for ( sigma = _sigmai; sigma <= _sigmaf+0.5*_dsigma; sigma += _dsigma ) {
+    for ( sigma = mitoObject->_sigmai; sigma <= mitoObject->_sigmaf+0.5*mitoObject->_dsigma; sigma += mitoObject->_dsigma ) {
         
         #ifdef DEBUG
             printf("Running sigma = %1.3f\n",sigma);
@@ -1400,11 +1464,11 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     #ifdef DEBUG
         vtkSmartPointer<vtkImageData> ImageVess = vtkSmartPointer<vtkImageData>::New();
+        ImageVess -> ShallowCopy(Image);
         ImageVess -> GetPointData() -> SetScalars(VSSS);
         ImageVess -> SetDimensions(Dim);
 
-        sprintf(_fullpath,"%s_vess.vtk",FileName);
-        SaveImageData(ImageVess,_fullpath);//BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),_fullpath);
+        SaveImageData(ImageVess,(mitoObject->FileName+"_vess.vtk").c_str());
     #endif
 
     //DIVERGENCE FILTER
@@ -1413,12 +1477,12 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     GetDivergenceFilter(Dim,VSSS);
 
     vtkSmartPointer<vtkImageData> ImageEnhanced = vtkSmartPointer<vtkImageData>::New();
+    ImageEnhanced -> ShallowCopy(Image);
     ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
     ImageEnhanced -> SetDimensions(Dim);
 
     #ifdef DEBUG
-        sprintf(_fullpath,"%s_div.vtk",FileName);
-        SaveImageData(BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),_fullpath);
+        SaveImageData(BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),(mitoObject->FileName+"_div.vtk").c_str());
     #endif
 
     #ifdef DEBUG
@@ -1433,7 +1497,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     Volume -> SetNumberOfComponents(0);
     Volume -> SetNumberOfTuples(N);
     Volume -> FillComponent(0,0);
-    long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold);
+    long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold); // can use _mitoObj here
 
     if (ncc > 1) {
         for (id = N; id--;) {
@@ -1455,18 +1519,17 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     Filter -> Update();
 
     vtkSmartPointer<vtkPolyData> Surface = Filter -> GetOutput();
-    ScalePolyData(Surface);
+    ScalePolyData(Surface,mitoObject);
 
     //SAVING SURFACE
     //--------------
 
-    sprintf(_fullpath,"%s_surface.vtk",FileName);
-    SavePolyData(Filter->GetOutput(),_fullpath);
+    SavePolyData(Filter->GetOutput(),(mitoObject->FileName+"_mitosurface.vtk").c_str());
 
     //BINARIZATION
     //------------
 
-    vtkSmartPointer<vtkImageData> Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold);
+    vtkSmartPointer<vtkImageData> Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold); // can use _mitoObj here
 
     //FILLING HOLES
     //-------------
@@ -1475,28 +1538,42 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     //MAX PROJECTION
     //--------------
 
-    sprintf(_fullpath,"%s.png",FileName);
-    ExportMaxProjection(Binary,_fullpath);
+    ExportMaxProjection(Binary,(mitoObject->FileName+".png").c_str());
 
     //SKELETONIZATION
     //---------------
 
-    vtkSmartPointer<vtkPolyData> Skeleton = Thinning3D(Binary,FileName,attributes);
-    ScalePolyData(Skeleton);
+    vtkSmartPointer<vtkPolyData> Skeleton = Thinning3D(Binary,mitoObject);
+    ScalePolyData(Skeleton,mitoObject);
 
     //TUBULES WIDTH
     //-------------
 
-    EstimateTubuleWidth(Skeleton,Filter->GetOutput(),attributes);
+    EstimateTubuleWidth(Skeleton,Filter->GetOutput(),mitoObject);
 
     //INTENSITY PROFILE ALONG THE SKELETON
     //------------------------------------
 
-    sprintf(_fullpath,"%s.tif",FileName);
-    TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
-    TIFFReader -> SetFileName(_fullpath);
-    TIFFReader -> Update();
-    vtkSmartPointer<vtkImageData> ImageData = TIFFReader -> GetOutput();
+    vtkSmartPointer<vtkImageData> ImageData;
+    if ( mitoObject->Type == "TIF" ) {
+
+        TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
+        TIFFReader -> SetFileName((mitoObject->FileName+".tif").c_str());
+        TIFFReader -> SetOrientationType(1);
+        TIFFReader -> Update();
+        ImageData = TIFFReader -> GetOutput();
+
+    } else {
+
+        STRUCReader = vtkSmartPointer<vtkStructuredPointsReader>::New();
+        STRUCReader -> SetFileName((mitoObject->FileName+"-mitovolume.vtk").c_str());
+        STRUCReader -> Update();
+        ImageData = STRUCReader -> GetOutput();
+
+    }
+
+    // Shifting the Stack to (0,0,0)
+    ImageData -> SetOrigin(0,0,0);
 
     MapImageIntensity(Skeleton,ImageData,6);
 
@@ -1505,8 +1582,7 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
 
     vtkIdType p;
     double length;
-    sprintf(_fullpath,"%s.width",FileName);
-    FILE *fw = fopen(_fullpath,"w");
+    FILE *fw = fopen((mitoObject->FileName+".width").c_str(),"w");
     for (vtkIdType edge = 0; edge < Skeleton -> GetNumberOfCells(); edge++) {
         length = GetEdgeLength(edge,Skeleton);
         for (vtkIdType id = 0; id < Skeleton -> GetCell(edge) -> GetNumberOfPoints(); id++) {
@@ -1516,15 +1592,14 @@ int MultiscaleVesselness(const char FileName[], double _sigmai, double _dsigma, 
     }
     fclose(fw);
 
-    GetVolumeFromSkeletonLengthAndWidth(Skeleton,attributes); //Validation needed
+    GetVolumeFromSkeletonLengthAndWidth(Skeleton,mitoObject); //Validation needed
 
-    GetTopologicalAttributes(Skeleton,attributes);
+    GetTopologicalAttributes(Skeleton,mitoObject);
 
     //SAVING SKELETON
     //---------------
 
-    sprintf(_fullpath,"%s_skeleton.vtk",FileName);
-    SavePolyData(Skeleton,_fullpath);
+    SavePolyData(Skeleton,(mitoObject->FileName+"_skeleton.vtk").c_str());
 
     return 0;
 }
@@ -1540,12 +1615,16 @@ int main(int argc, char *argv[]) {
     sprintf(_impath,"");
     double _sigmai = 1.00;
     double _sigmaf = 1.50;
-       int _nsigma = 6;
+    bool _vtk_input = false;
+    int _nsigma = 6;
 
     // Collecting input parameters
     for (i = 0; i < argc; i++) {
+        if (!strcmp(argv[i],"-vtk")) {
+            _vtk_input = true;
+        }
         if (!strcmp(argv[i],"-path")) {
-            sprintf(_impath,"%s//",argv[i+1]);
+            sprintf(_impath,"%s/",argv[i+1]);
         }
         if (!strcmp(argv[i],"-xy")) {
             _dxy = atof(argv[i+1]);
@@ -1595,80 +1674,40 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    _mitoObject mitoObject;
+
     // Generating list of files to run
-    char _cmd[512];
-    sprintf(_cmd,"ls %s*.tif | sed -e 's/.tif//' > %smitograph.files",_impath,_impath);
-    system(_cmd);
+    std::vector<std::string> Files;
 
-    char _tifffilename[512];
-    char _tifflistpath[512];
-    sprintf(_tifflistpath,"%smitograph.files",_impath);
-    FILE *f = fopen(_tifflistpath,"r");
-
-    if (_checkonly) {
-
-        while (fgets(_tifffilename,512, f) != NULL) {
-            _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
-
-            ExportDetailedMaxProjection(_tifffilename);
-
-            printf("%s\n",_tifffilename);
-        }
-
+    if (_vtk_input) {
+        mitoObject.Type = "VTK";
+        ScanFolderForThisExtension(_impath,"-mitovolume.vtk",&Files);
     } else {
+        mitoObject.Type = "TIF";
+        ScanFolderForThisExtension(_impath,".tif",&Files);
+    }    
 
-        double _dsigma = (_sigmaf-_sigmai) / (_nsigma-1);
+    double _dsigma = (_sigmaf-_sigmai) / (_nsigma-1);
+    mitoObject._sigmai = _sigmai;
+    mitoObject._sigmaf = _sigmaf;
+    mitoObject._dsigma = _dsigma;
 
-        // Generating summary file and writing the header
-        char _summaryfilename[512];
-        char _individfilename[512];
-        sprintf(_summaryfilename,"%ssummary.txt",_impath);
-        FILE *fsummary = fopen(_summaryfilename,"w");
-        if (_adaptive_threshold) {
-            fprintf(fsummary,"MitoGraph V2.5 [Adaptive Algorithm]\n");
+    for (int i = 0; i < Files.size(); i++) {
+
+        mitoObject.FileName = Files[i];
+        
+        if ( _checkonly ) {
+
+            ExportDetailedMaxProjection(&mitoObject);
+
         } else {
-            fprintf(fsummary,"MitoGraph V2.5\n");
-        }
-        fprintf(fsummary,"Folder: %s\n",_impath);
-        fprintf(fsummary,"Pixel size: -xy %1.4fum, -z %1.4fum\n",_dxy,_dz);
-        fprintf(fsummary,"Average tubule radius: -r %1.4fum\n",_rad);
-        fprintf(fsummary,"Scales: -scales %1.2f",_sigmai);
-        for ( double sigma = _sigmai+_dsigma; sigma < _sigmaf+0.5*_dsigma; sigma += _dsigma )
-            fprintf(fsummary," %1.2f",sigma);
-        fprintf(fsummary,"\nPost-divergence threshold: -threshold %1.5f\n",_div_threshold);
-        time_t now = time(0);
-        fprintf(fsummary,"%s\n",ctime(&now));
-        fprintf(fsummary,"Image\tsurface-volume_(um3)\ttotal_length_(um)\tskeleton-volume_(um3)\tavg_width_(um)\tstd_width_(um)\t#Endpoints\t#Branches\n");
-        fclose(fsummary);
 
-        // Multiscale vesselness
-        double *attributes = new double[7];
-        sprintf(_tifflistpath,"%smitograph.files",_impath);
-        FILE *f = fopen(_tifflistpath,"r");
-        while (fgets(_tifffilename,512, f) != NULL) {
-            _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
-
-            MultiscaleVesselness(_tifffilename,_sigmai,_dsigma,_sigmaf,attributes);
-            
-            // Saving network attributes in the group file
-            fsummary = fopen(_summaryfilename,"a");
-            fprintf(fsummary,"%s\t%1.5f\t%1.5f\t%1.5f\t%1.5f\t%1.5f\t%d\t%d\n",_tifffilename,attributes[0],attributes[1],attributes[2],attributes[3],attributes[4],(int)attributes[5],(int)attributes[6]);
-            fclose(fsummary);
-
-            // Saving network attributes in the individual file
-            sprintf(_individfilename,"%s.mitograph",_tifffilename);
-            FILE *findv = fopen(_individfilename,"w");
-            fprintf(findv,"surface-volume_(um3)\ttotal_length_(um)\tskeleton-volume_(um3)\tavg_width_(um)\tstd_width (um)\n");
-            fprintf(findv,"%1.5f\t%1.5f\t%1.5f\t%1.5f\t%1.5f\n",attributes[0],attributes[1],attributes[2],attributes[3],attributes[4]);
-            fclose(findv);
-
-            // Also printing on the screen
-            printf("%s\t[done]\n",_tifffilename);
+            MultiscaleVesselness(&mitoObject);
+            DumpResults(mitoObject);
 
         }
 
     }
 
-    fclose(f);
     return 0;
 }

@@ -3,8 +3,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dirent.h>
 
 #include <vtkMath.h>
+#include <vtkImageFlip.h>
 #include <vtkPolyLine.h>
 #include <vtkCellArray.h>
 #include <vtkLongArray.h>
@@ -40,5 +42,22 @@
 #include <vtkImageCast.h>
 #include <vtkPoints.h>
 
+#ifndef _MITOGRAPH_ENV_VARS
+
+	#define _MITOGRAPH_ENV_VARS
+
+	struct attribute { std::string name; double value; };
+
+	struct _mitoObject {
+	    std::string Type, FileName;
+	    double Ox, Oy, Oz;
+	    double _sigmai, _sigmaf, _dsigma;
+	    double _att[7];
+	    std::vector<attribute> attributes;
+	};
+
+#endif
+
+//#define DEBUG
 #include "ssThinning.h"
 #include "MitoThinning.h"

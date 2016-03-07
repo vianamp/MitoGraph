@@ -18,13 +18,13 @@
 	// Thinning algorithm based on the paper: "A 3D 6-subinteration thinning
 	// algorithm for extracting medial lines", by Kálman Palágyi and Attila
 	// Kuba.
-	vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, const char FileName[], double *attributes);
+	vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, _mitoObject *mitoObject);
 
 	// Routine used to save an ImageData
 	void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], bool _resample = false);
 
 	// Routine used to save a PolyData
-	void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[], bool scale = _scale_polydata_before_save);
+	void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[]);
 
 	// Calculate the length of a given edge.
 	double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData);
