@@ -527,6 +527,7 @@ void DumpResults(const _mitoObject mitoObject) {
     fprintf(findv,"\n");
     for (int i = 0; i < mitoObject.attributes.size(); i++)
         fprintf(findv,"%1.5f\t",mitoObject.attributes[i].value);
+    fprintf(findv,"\n");
     fclose(findv);
 
     // Also printing on the screen
@@ -1253,6 +1254,7 @@ void GetVolumeFromSkeletonLengthAndWidth(vtkSmartPointer<vtkPolyData> PolyData, 
 =================================================================*/
 
 void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject *mitoObject) {
+    // NUMBER OF END POINTS
     long int n, k;
     std::list<vtkIdType> Endpoints;
     for (vtkIdType edge=PolyData->GetNumberOfCells();edge--;) {
@@ -1263,6 +1265,7 @@ void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject
     std::list<vtkIdType> Nodes = Endpoints;
     Nodes.sort();
     Nodes.unique();
+    // NUMBER OF BIFURCATION POINTS
     long int ne = 0, nb = 0;
     for (std::list<vtkIdType>::iterator it = Nodes.begin(); it!=Nodes.end(); it++) {
         k = std::count(Endpoints.begin(),Endpoints.end(),*it);
@@ -1273,7 +1276,16 @@ void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject
     mitoObject -> attributes.push_back(newAtt_1);
     attribute newAtt_2 = {"#Bifurcations",nb};
     mitoObject -> attributes.push_back(newAtt_2);
-
+    // NUMBER OF CONNECTED COMPONENTS
+    vtkSmartPointer<vtkPolyDataConnectivityFilter> CC = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
+    CC -> SetInputData(PolyData);
+    CC -> ColorRegionsOn();
+    CC -> Update();
+    vtkSmartPointer<vtkPolyData> CCPolyData = CC -> GetOutput();
+    double range[2];
+    CCPolyData->GetPointData()->GetArray("RegionId")->GetRange(range);
+    attribute newAtt_3 = {"#CComps",range[1]+1};
+    mitoObject -> attributes.push_back(newAtt_3);
 }
 
 /* ================================================================
@@ -1544,6 +1556,14 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     //---------------
 
     vtkSmartPointer<vtkPolyData> Skeleton = Thinning3D(Binary,mitoObject);
+
+    //CLEANING POLUDATA
+    vtkSmartPointer<vtkCleanPolyData> Clean = vtkSmartPointer<vtkCleanPolyData>::New();
+    Clean -> SetInputData(Skeleton);
+    Clean -> Update();
+
+    Skeleton -> DeepCopy(Clean->GetOutput());
+
     ScalePolyData(Skeleton,mitoObject);
 
     //TUBULES WIDTH
@@ -1694,6 +1714,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < Files.size(); i++) {
 
+        mitoObject.attributes.clear();
         mitoObject.FileName = Files[i];
         
         if ( _checkonly ) {

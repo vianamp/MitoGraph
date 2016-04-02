@@ -26,6 +26,7 @@
 #include <vtkUnsignedShortArray.h>
 #include <vtkStructuredPointsWriter.h>
 #include <vtkTransformPolyDataFilter.h>
+#include <vtkPolyDataConnectivityFilter.h>
 #include <vtkImageExtractComponents.h>
 #include <vtkStructuredPointsReader.h>
 #include <vtkImageGaussianSmooth.h>
@@ -34,6 +35,7 @@
 #include <vtkPolyDataReader.h>
 #include <vtkPolyDataWriter.h>
 #include <vtkContourFilter.h>
+#include <vtkCleanPolyData.h>
 #include <vtkDoubleArray.h>
 #include <vtkTIFFReader.h>
 #include <vtkPNGWriter.h>
@@ -52,7 +54,6 @@
 	    std::string Type, FileName;
 	    double Ox, Oy, Oz;
 	    double _sigmai, _sigmaf, _dsigma;
-	    double _att[7];
 	    std::vector<attribute> attributes;
 	};
 
