@@ -1506,7 +1506,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     long int cluster;
     std::vector<long int> CSz;
     vtkSmartPointer<vtkDoubleArray> Volume = vtkSmartPointer<vtkDoubleArray>::New();
-    Volume -> SetNumberOfComponents(0);
+    Volume -> SetNumberOfComponents(1);
     Volume -> SetNumberOfTuples(N);
     Volume -> FillComponent(0,0);
     long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold); // can use _mitoObj here
