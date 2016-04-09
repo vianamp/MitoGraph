@@ -660,7 +660,7 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
     }
 
     vtkSmartPointer<vtkLongArray> Volume = vtkSmartPointer<vtkLongArray>::New();
-    Volume -> SetNumberOfComponents(0);
+    Volume -> SetNumberOfComponents(1);
     Volume -> SetNumberOfTuples(N);
 
     // Inside this IF statement, we label all connected components
