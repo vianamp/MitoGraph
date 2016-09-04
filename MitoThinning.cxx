@@ -102,33 +102,50 @@ void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], b
         printf("Saving ImageData File...\n");
     #endif
 
-    vtkSmartPointer<vtkStructuredPointsWriter> writer = vtkSmartPointer<vtkStructuredPointsWriter>::New();
+    vtkSmartPointer<vtkTIFFWriter> writer = vtkSmartPointer<vtkTIFFWriter>::New();
+    writer -> SetFileName(FileName);
 
-    if (_resample) {
-        #ifdef DEBUG
-            printf("\tResampling data...%f\t%f\n",_dxy,_dz);
-        #endif
-        vtkSmartPointer<vtkImageResample> Resample = vtkSmartPointer<vtkImageResample>::New();
-        Resample -> SetInterpolationModeToLinear();
-        Resample -> SetDimensionality(3);
-        Resample -> SetInputData(Image);
-        Resample -> SetAxisMagnificationFactor(0,1.0);
-        Resample -> SetAxisMagnificationFactor(1,1.0);
-        Resample -> SetAxisMagnificationFactor(2,_dz/_dxy);
-        Resample -> Update();
+    // TIF writer does not support data of type double
+    if (Image -> GetScalarType() == VTK_DOUBLE) {
 
-        vtkSmartPointer<vtkImageData> ImageResampled = Resample -> GetOutput();
-        ImageResampled -> SetSpacing(1,1,1);
+        double range[2];
+        Image -> GetScalarRange( range );
+        vtkSmartPointer<vtkImageShiftScale> ShiftFilter = vtkSmartPointer<vtkImageShiftScale>::New();
+        ShiftFilter -> SetInputData(Image);
+        ShiftFilter -> SetScale( 65535./(range[1]-range[0]));
+        ShiftFilter -> SetShift( -range[0] );
+        ShiftFilter -> SetOutputScalarTypeToUnsignedShort();
+        ShiftFilter -> Update();
+        
+        writer -> SetInputData(ShiftFilter->GetOutput());
 
-        writer -> SetInputData(ImageResampled);
     } else {
 
-        writer -> SetInputData(Image);
+        if (_resample) {
+            #ifdef DEBUG
+                printf("\tResampling data...%f\t%f\n",_dxy,_dz);
+            #endif
+            vtkSmartPointer<vtkImageResample> Resample = vtkSmartPointer<vtkImageResample>::New();
+            Resample -> SetInterpolationModeToLinear();
+            Resample -> SetDimensionality(3);
+            Resample -> SetInputData(Image);
+            Resample -> SetAxisMagnificationFactor(0,1.0);
+            Resample -> SetAxisMagnificationFactor(1,1.0);
+            Resample -> SetAxisMagnificationFactor(2,_dz/_dxy);
+            Resample -> Update();
 
+            vtkSmartPointer<vtkImageData> ImageResampled = Resample -> GetOutput();
+            ImageResampled -> SetSpacing(1,1,1);
+
+            writer -> SetInputData(ImageResampled);
+        } else {
+
+            writer -> SetInputData(Image);
+
+        }
+        
     }
     
-    writer -> SetFileType(VTK_BINARY);
-    writer -> SetFileName(FileName);
     writer -> Write();
 
     #ifdef DEBUG
@@ -390,7 +407,7 @@ double GetEdgeLength(vtkIdType edge, vtkSmartPointer<vtkPolyData> PolyData) {
 vtkSmartPointer<vtkPolyData> Thinning3D(vtkSmartPointer<vtkImageData> ImageData, _mitoObject *mitoObject) {
 
     #ifdef DEBUG
-        SaveImageData(ImageData,(mitoObject->FileName+"_binary.vtk").c_str());
+        SaveImageData(ImageData,(mitoObject->FileName+"_binary.tif").c_str());
     #endif
 
     vtkIdType N = ImageData -> GetNumberOfPoints();
@@ -612,7 +629,7 @@ long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge
 vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image, _mitoObject *mitoObject) {
 
     #ifdef DEBUG
-        SaveImageData(Image,(mitoObject->FileName+"_thinned.vtk").c_str());
+        SaveImageData(Image,(mitoObject->FileName+"_thinned.tif").c_str());
     #endif
 
     double r[3];

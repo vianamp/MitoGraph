@@ -1319,7 +1319,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
         // Exporting resampled images
 
         if ( _export_image_resampled ) {
-            SaveImageData(TIFFReader->GetOutput(),(mitoObject->FileName+"_resampled.vtk").c_str(),true);
+            SaveImageData(TIFFReader->GetOutput(),(mitoObject->FileName+"_resampled.tif").c_str(),true);
         }
 
         if ( Dim[2] == 1 ) {
@@ -1480,7 +1480,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
         ImageVess -> GetPointData() -> SetScalars(VSSS);
         ImageVess -> SetDimensions(Dim);
 
-        SaveImageData(ImageVess,(mitoObject->FileName+"_vess.vtk").c_str());
+        SaveImageData(ImageVess,(mitoObject->FileName+"_vess.tif").c_str());
     #endif
 
     //DIVERGENCE FILTER
@@ -1494,7 +1494,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     ImageEnhanced -> SetDimensions(Dim);
 
     #ifdef DEBUG
-        SaveImageData(BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),(mitoObject->FileName+"_div.vtk").c_str());
+        SaveImageData(BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),(mitoObject->FileName+"_div.tif").c_str());
     #endif
 
     #ifdef DEBUG

@@ -38,6 +38,8 @@
 #include <vtkCleanPolyData.h>
 #include <vtkDoubleArray.h>
 #include <vtkTIFFReader.h>
+#include <vtkImageShiftScale.h>
+#include <vtkTIFFWriter.h>
 #include <vtkPNGWriter.h>
 #include <vtkPointData.h>
 #include <vtkImageRFFT.h>
@@ -59,6 +61,6 @@
 
 #endif
 
-//#define DEBUG
+#define DEBUG
 #include "ssThinning.h"
 #include "MitoThinning.h"
