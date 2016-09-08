@@ -53,6 +53,7 @@
 	struct attribute { std::string name; double value; };
 
 	struct _mitoObject {
+		bool _binary_input;
 	    std::string Type, FileName;
 	    double Ox, Oy, Oz;
 	    double _sigmai, _sigmaf, _dsigma;

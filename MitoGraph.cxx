@@ -1434,100 +1434,129 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
     if (!Image) printf("Format not supported.\n");
 
-    //VESSELNESS
-    //----------
-
+    vtkSmartPointer<vtkImageData> Binary;
+    vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
     vtkIdType N = Image -> GetNumberOfPoints();
 
-    vtkSmartPointer<vtkDoubleArray> AUX1 = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> AUX2 = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> AUX3 = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkSmartPointer<vtkDoubleArray> VSSS = vtkSmartPointer<vtkDoubleArray>::New();
+    if (!mitoObject->_binary_input) {
 
-    AUX1 -> SetNumberOfTuples(N);
-    AUX2 -> SetNumberOfTuples(N);
-    AUX3 -> SetNumberOfTuples(N);
-    VSSS -> SetNumberOfTuples(N);
-    AUX1 -> FillComponent(0,0.0);
-    AUX2 -> FillComponent(0,0.0);
-    AUX3 -> FillComponent(0,0.0);
-    VSSS -> FillComponent(0,0.0);
+        //VESSELNESS
+        //----------
 
-    double sigma, vn, vo;
+        vtkSmartPointer<vtkDoubleArray> AUX1 = vtkSmartPointer<vtkDoubleArray>::New();
+        vtkSmartPointer<vtkDoubleArray> AUX2 = vtkSmartPointer<vtkDoubleArray>::New();
+        vtkSmartPointer<vtkDoubleArray> AUX3 = vtkSmartPointer<vtkDoubleArray>::New();
+        vtkSmartPointer<vtkDoubleArray> VSSS = vtkSmartPointer<vtkDoubleArray>::New();
 
-    for ( sigma = mitoObject->_sigmai; sigma <= mitoObject->_sigmaf+0.5*mitoObject->_dsigma; sigma += mitoObject->_dsigma ) {
-        
-        #ifdef DEBUG
-            printf("Running sigma = %1.3f\n",sigma);
-        #endif
-        
-        GetVesselness(sigma,Image,AUX1,AUX2,AUX3);
-        
-        for ( id = N; id--; ) {
-            vn = AUX1 -> GetTuple1(id);
-            vo = VSSS -> GetTuple1(id);
-            if ( vn > vo ) {
-                VSSS -> SetTuple1(id,vn);
+        AUX1 -> SetNumberOfTuples(N);
+        AUX2 -> SetNumberOfTuples(N);
+        AUX3 -> SetNumberOfTuples(N);
+        VSSS -> SetNumberOfTuples(N);
+        AUX1 -> FillComponent(0,0.0);
+        AUX2 -> FillComponent(0,0.0);
+        AUX3 -> FillComponent(0,0.0);
+        VSSS -> FillComponent(0,0.0);
+
+        double sigma, vn, vo;
+
+        for ( sigma = mitoObject->_sigmai; sigma <= mitoObject->_sigmaf+0.5*mitoObject->_dsigma; sigma += mitoObject->_dsigma ) {
+            
+            #ifdef DEBUG
+                printf("Running sigma = %1.3f\n",sigma);
+            #endif
+            
+            GetVesselness(sigma,Image,AUX1,AUX2,AUX3);
+            
+            for ( id = N; id--; ) {
+                vn = AUX1 -> GetTuple1(id);
+                vo = VSSS -> GetTuple1(id);
+                if ( vn > vo ) {
+                    VSSS -> SetTuple1(id,vn);
+                }
             }
+
         }
+        VSSS -> Modified();
 
-    }
-    VSSS -> Modified();
+        #ifdef DEBUG
+            vtkSmartPointer<vtkImageData> ImageVess = vtkSmartPointer<vtkImageData>::New();
+            ImageVess -> ShallowCopy(Image);
+            ImageVess -> GetPointData() -> SetScalars(VSSS);
+            ImageVess -> SetDimensions(Dim);
 
-    #ifdef DEBUG
-        vtkSmartPointer<vtkImageData> ImageVess = vtkSmartPointer<vtkImageData>::New();
-        ImageVess -> ShallowCopy(Image);
-        ImageVess -> GetPointData() -> SetScalars(VSSS);
-        ImageVess -> SetDimensions(Dim);
+            SaveImageData(ImageVess,(mitoObject->FileName+"_vess.tif").c_str());
+        #endif
 
-        SaveImageData(ImageVess,(mitoObject->FileName+"_vess.tif").c_str());
-    #endif
+        //DIVERGENCE FILTER
+        //-----------------
 
-    //DIVERGENCE FILTER
-    //-----------------
+        GetDivergenceFilter(Dim,VSSS);
 
-    GetDivergenceFilter(Dim,VSSS);
+        vtkSmartPointer<vtkImageData> ImageEnhanced = vtkSmartPointer<vtkImageData>::New();
+        ImageEnhanced -> ShallowCopy(Image);
+        ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
+        ImageEnhanced -> SetDimensions(Dim);
 
-    vtkSmartPointer<vtkImageData> ImageEnhanced = vtkSmartPointer<vtkImageData>::New();
-    ImageEnhanced -> ShallowCopy(Image);
-    ImageEnhanced -> GetPointData() -> SetScalars(VSSS);
-    ImageEnhanced -> SetDimensions(Dim);
+        #ifdef DEBUG
+            SaveImageData(BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),(mitoObject->FileName+"_div.tif").c_str());
+        #endif
 
-    #ifdef DEBUG
-        SaveImageData(BinarizeAndConvertDoubleToChar(ImageEnhanced,-1),(mitoObject->FileName+"_div.tif").c_str());
-    #endif
+        #ifdef DEBUG
+            printf("Clear boundaries and removing tiny components...\n");
+        #endif
 
-    #ifdef DEBUG
-        printf("Clear boundaries and removing tiny components...\n");
-    #endif
+        CleanImageBoundaries(ImageEnhanced);
 
-    CleanImageBoundaries(ImageEnhanced);
+        long int cluster;
+        std::vector<long int> CSz;
+        vtkSmartPointer<vtkDoubleArray> Volume = vtkSmartPointer<vtkDoubleArray>::New();
+        Volume -> SetNumberOfComponents(1);
+        Volume -> SetNumberOfTuples(N);
+        Volume -> FillComponent(0,0);
+        long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold); // can use _mitoObj here
 
-    long int cluster;
-    std::vector<long int> CSz;
-    vtkSmartPointer<vtkDoubleArray> Volume = vtkSmartPointer<vtkDoubleArray>::New();
-    Volume -> SetNumberOfComponents(1);
-    Volume -> SetNumberOfTuples(N);
-    Volume -> FillComponent(0,0);
-    long int ncc = LabelConnectedComponents(ImageEnhanced,Volume,CSz,6,_div_threshold); // can use _mitoObj here
-
-    if (ncc > 1) {
-        for (id = N; id--;) {
-            cluster = (long int)Volume -> GetTuple1(id);
-            if (cluster < 0) {
-                if (CSz[-cluster-1] <= 5) {
-                    ImageEnhanced -> GetPointData() -> GetScalars() -> SetTuple1(id,0);
+        if (ncc > 1) {
+            for (id = N; id--;) {
+                cluster = (long int)Volume -> GetTuple1(id);
+                if (cluster < 0) {
+                    if (CSz[-cluster-1] <= 5) {
+                        ImageEnhanced -> GetPointData() -> GetScalars() -> SetTuple1(id,0);
+                    }
                 }
             }
         }
+
+        //BINARIZATION
+        //------------
+
+        Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold); // can use _mitoObj here
+
+        //FILLING HOLES
+        //-------------
+        if (_improve_skeleton_quality) FillHoles(Binary);
+
+        //MAX PROJECTION
+        //--------------
+
+        ExportMaxProjection(Binary,(mitoObject->FileName+".png").c_str());
+
+        //CREATING SURFACE POLYDATA
+        //-------------------------
+        Filter -> SetInputData(ImageEnhanced);
+        Filter -> SetValue(1,_div_threshold);
+
+    } else {
+
+        Binary = vtkSmartPointer<vtkImageData>::New();
+        Binary -> DeepCopy(Image);
+
+        //CREATING SURFACE POLYDATA
+        //-------------------------
+        Filter -> SetInputData(Binary);
+        Filter -> SetValue(1,0.5);
+
     }
 
-    //CREATING SURFACE POLYDATA
-    //-------------------------
-
-    vtkSmartPointer<vtkContourFilter> Filter = vtkSmartPointer<vtkContourFilter>::New();
-    Filter -> SetInputData(ImageEnhanced);
-    Filter -> SetValue(1,_div_threshold);
     Filter -> Update();
 
     vtkSmartPointer<vtkPolyData> Surface = Filter -> GetOutput();
@@ -1536,21 +1565,8 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     //SAVING SURFACE
     //--------------
 
-    SavePolyData(Filter->GetOutput(),(mitoObject->FileName+"_mitosurface.vtk").c_str());
+    SavePolyData(Surface,(mitoObject->FileName+"_mitosurface.vtk").c_str());
 
-    //BINARIZATION
-    //------------
-
-    vtkSmartPointer<vtkImageData> Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold); // can use _mitoObj here
-
-    //FILLING HOLES
-    //-------------
-    if (_improve_skeleton_quality) FillHoles(Binary);
-
-    //MAX PROJECTION
-    //--------------
-
-    ExportMaxProjection(Binary,(mitoObject->FileName+".png").c_str());
 
     //SKELETONIZATION
     //---------------
@@ -1569,7 +1585,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     //TUBULES WIDTH
     //-------------
 
-    EstimateTubuleWidth(Skeleton,Filter->GetOutput(),mitoObject);
+    EstimateTubuleWidth(Skeleton,Surface,mitoObject);
 
     //INTENSITY PROFILE ALONG THE SKELETON
     //------------------------------------
@@ -1636,6 +1652,7 @@ int main(int argc, char *argv[]) {
     double _sigmai = 1.00;
     double _sigmaf = 1.50;
     bool _vtk_input = false;
+    bool _binary_input = false;
     int _nsigma = 6;
 
     // Collecting input parameters
@@ -1687,6 +1704,9 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-export_image_resampled")) {
             _export_image_resampled = true;
         }
+        if (!strcmp(argv[i],"-binary")) {
+            _binary_input = true;
+        }
     }
 
     if (_dz<0) {
@@ -1711,6 +1731,7 @@ int main(int argc, char *argv[]) {
     mitoObject._sigmai = _sigmai;
     mitoObject._sigmaf = _sigmaf;
     mitoObject._dsigma = _dsigma;
+    mitoObject._binary_input = _binary_input;
 
     for (int i = 0; i < Files.size(); i++) {
 
