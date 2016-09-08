@@ -164,7 +164,9 @@ void SavePolyData(vtkSmartPointer<vtkPolyData> PolyData, const char FileName[]) 
     #endif
 
     vtkSmartPointer<vtkPolyDataWriter> Writer = vtkSmartPointer<vtkPolyDataWriter>::New();
-    Writer -> SetFileType(VTK_BINARY);
+    #ifndef DEBUG
+        Writer -> SetFileType(VTK_BINARY);
+    #endif
     Writer -> SetFileName(FileName);
     Writer -> SetInputData(PolyData);
     Writer -> Write();
