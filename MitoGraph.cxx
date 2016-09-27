@@ -353,7 +353,6 @@ void ExportDetailedMaxProjection(_mitoObject *mitoObject) {
 
         // Loading TIFF File
         TIFFReader -> SetFileName((mitoObject->FileName+".tif").c_str());
-        TIFFReader -> SetOrientationType(1);
         TIFFReader -> Update();
         vtkSmartPointer<vtkImageData> Image = TIFFReader -> GetOutput();
 
@@ -1311,7 +1310,6 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
             return -1;
         }
         TIFFReader -> SetFileName((mitoObject->FileName+".tif").c_str());
-        TIFFReader -> SetOrientationType(1);
         TIFFReader -> Update();
 
         Dim = TIFFReader -> GetOutput() -> GetDimensions();
@@ -1595,7 +1593,6 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
         TIFFReader = vtkSmartPointer<vtkTIFFReader>::New();
         TIFFReader -> SetFileName((mitoObject->FileName+".tif").c_str());
-        TIFFReader -> SetOrientationType(1);
         TIFFReader -> Update();
         ImageData = TIFFReader -> GetOutput();
 
@@ -1727,7 +1724,7 @@ int main(int argc, char *argv[]) {
         ScanFolderForThisExtension(_impath,".tif",&Files);
     }    
 
-    double _dsigma = (_sigmaf-_sigmai) / (_nsigma-1);
+    double _dsigma = (_nsigma>1) ? (_sigmaf-_sigmai) / (_nsigma-1) : _sigmaf;
     mitoObject._sigmai = _sigmai;
     mitoObject._sigmaf = _sigmaf;
     mitoObject._dsigma = _dsigma;

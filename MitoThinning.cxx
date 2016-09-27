@@ -102,6 +102,12 @@ void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], b
         printf("Saving ImageData File...\n");
     #endif
 
+    vtkSmartPointer<vtkImageFlip> Flip = vtkSmartPointer<vtkImageFlip>::New();
+    Flip -> SetInputData(Image);
+    Flip -> SetFilteredAxis(1);
+    Flip -> PreserveImageExtentOn();
+    Flip -> Update();
+
     vtkSmartPointer<vtkTIFFWriter> writer = vtkSmartPointer<vtkTIFFWriter>::New();
     writer -> SetFileName(FileName);
 
@@ -111,7 +117,7 @@ void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], b
         double range[2];
         Image -> GetScalarRange( range );
         vtkSmartPointer<vtkImageShiftScale> ShiftFilter = vtkSmartPointer<vtkImageShiftScale>::New();
-        ShiftFilter -> SetInputData(Image);
+        ShiftFilter -> SetInputData(Flip->GetOutput());
         ShiftFilter -> SetScale( 65535./(range[1]-range[0]));
         ShiftFilter -> SetShift( -range[0] );
         ShiftFilter -> SetOutputScalarTypeToUnsignedShort();
@@ -128,7 +134,7 @@ void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], b
             vtkSmartPointer<vtkImageResample> Resample = vtkSmartPointer<vtkImageResample>::New();
             Resample -> SetInterpolationModeToLinear();
             Resample -> SetDimensionality(3);
-            Resample -> SetInputData(Image);
+            Resample -> SetInputData(Flip->GetOutput());
             Resample -> SetAxisMagnificationFactor(0,1.0);
             Resample -> SetAxisMagnificationFactor(1,1.0);
             Resample -> SetAxisMagnificationFactor(2,_dz/_dxy);
@@ -140,7 +146,7 @@ void SaveImageData(vtkSmartPointer<vtkImageData> Image, const char FileName[], b
             writer -> SetInputData(ImageResampled);
         } else {
 
-            writer -> SetInputData(Image);
+            writer -> SetInputData(Flip->GetOutput());
 
         }
         
