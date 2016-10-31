@@ -1,5 +1,6 @@
 #include <list>
 #include <cmath>
+#include <ctime>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

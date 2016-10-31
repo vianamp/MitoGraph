@@ -31,6 +31,7 @@
     double _div_threshold = 0.1666667;
     bool _checkonly = false;
     bool _width = false;
+    double _resample = -1.0;
     bool _improve_skeleton_quality = true; // when this is true nodes with degree zero
                                            // expanded and detected. Additional checking
                                            // is also done to garantee that all non-zero
@@ -521,6 +522,7 @@ void DumpResults(const _mitoObject mitoObject) {
 
     // Saving network attributes in the individual file
     FILE *findv = fopen((mitoObject.FileName+".mitograph").c_str(),"w");
+
     for (int i = 0; i < mitoObject.attributes.size(); i++)
         fprintf(findv,"%s\t",mitoObject.attributes[i].name.c_str());
     fprintf(findv,"\n");
@@ -528,6 +530,8 @@ void DumpResults(const _mitoObject mitoObject) {
         fprintf(findv,"%1.5f\t",mitoObject.attributes[i].value);
     fprintf(findv,"\n");
     fclose(findv);
+
+    fprintf(findv,"\n");
 
     // Also printing on the screen
     printf("%s\t[done]\n",mitoObject.FileName.c_str());
@@ -1361,7 +1365,26 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
         } else {
 
-            Image = TIFFReader -> GetOutput();
+            if (_resample > 0) {
+
+                vtkSmartPointer<vtkImageResample> Resample = vtkSmartPointer<vtkImageResample>::New();
+                Resample -> SetInterpolationModeToLinear();
+                Resample -> SetDimensionality(3);
+                Resample -> SetInputData(TIFFReader->GetOutput());
+                Resample -> SetAxisMagnificationFactor(0,1.0);
+                Resample -> SetAxisMagnificationFactor(1,1.0);
+                Resample -> SetAxisMagnificationFactor(2,_resample/_dxy);
+                Resample -> Update();
+
+                Image = Resample -> GetOutput();
+
+                _dz = _resample;
+            
+            } else {
+
+                Image = TIFFReader -> GetOutput();
+
+            }
 
         }
 
@@ -1627,7 +1650,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
     GetVolumeFromSkeletonLengthAndWidth(Skeleton,mitoObject); //Validation needed
 
-    GetTopologicalAttributes(Skeleton,mitoObject);
+    //GetTopologicalAttributes(Skeleton,mitoObject);
 
     //SAVING SKELETON
     //---------------
@@ -1650,6 +1673,7 @@ int main(int argc, char *argv[]) {
     double _sigmaf = 1.50;
     bool _vtk_input = false;
     bool _binary_input = false;
+    bool _analyze = false;
     int _nsigma = 6;
 
     // Collecting input parameters
@@ -1704,6 +1728,12 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-binary")) {
             _binary_input = true;
         }
+        if (!strcmp(argv[i],"-resample")) {
+            _resample = atof(argv[i+1]);
+        }
+        if (!strcmp(argv[i],"-analyze")) {
+            _analyze = true;
+        }
     }
 
     if (_dz<0) {
@@ -1724,6 +1754,7 @@ int main(int argc, char *argv[]) {
         ScanFolderForThisExtension(_impath,".tif",&Files);
     }    
 
+    std::string cmd;
     double _dsigma = (_nsigma>1) ? (_sigmaf-_sigmai) / (_nsigma-1) : _sigmaf;
     mitoObject._sigmai = _sigmai;
     mitoObject._sigmaf = _sigmaf;
@@ -1744,6 +1775,11 @@ int main(int argc, char *argv[]) {
             MultiscaleVesselness(&mitoObject);
             DumpResults(mitoObject);
 
+        }
+
+        if (_analyze) {
+            cmd = "Rscript --vanilla GraphAnalyzer.R " + Files[i];
+            system(cmd.c_str());
         }
 
     }
