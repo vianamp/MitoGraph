@@ -37,7 +37,7 @@
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
 
-    std::string MITOGRAPH_VERSION = "V2.5";
+    std::string MITOGRAPH_VERSION = "V3.0";
 
     //                    |------06------|
     //                    |------------------------18------------------------|
@@ -986,6 +986,19 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
     GetImageDerivativeDiscrete(Dz,Dim,'y',Dyz);
 
     int x, y, z;
+    int blks = 10;
+
+    double ***FThresh2 = new double**[blks];
+    for ( int qx = blks; qx--; ) {
+        FThresh2[qx] = new double*[blks];
+        for ( int qy = blks; qy--; ) {
+            FThresh2[qx][qy] = new double[Dim[2]];
+            for ( id = Dim[2]; id--; ) {
+                FThresh2[qx][qy][id] = 0.0;
+            }
+        }
+    }
+
     double *FThresh = new double[Dim[2]];
     for ( id = Dim[2]; id--; ) FThresh[id] = 0.0;
 
@@ -1004,12 +1017,27 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
         L2 -> SetTuple1(id,l2);
         L3 -> SetTuple1(id,l3);
         Fro -> SetTuple1(id,frobnorm);
+        x = GetX(id,Dim);
+        y = GetY(id,Dim);
         z = GetZ(id,Dim);
+        FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z] = (frobnorm > FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z]) ? frobnorm : FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z];
         FThresh[z] = (frobnorm > FThresh[z]) ? frobnorm : FThresh[z];
+    }
+
+    for ( z = Dim[2]; z--; ) {
+        for ( x = blks; x--; ) {
+            for ( y = blks; y--; ) {
+                FThresh2[x][y][z] = sqrt(FThresh2[x][y][z]);
+            }
+        }
     }
 
     for ( z = Dim[2]; z--; ) FThresh[z] = sqrt(FThresh[z]);
 
+    //
+    // Testing Region-Based Threshold
+    //
+    
     int j;
     double frobneigh;
     for ( id = N; id--; ) {
@@ -1023,7 +1051,8 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
             }
             frobneigh /= 6.0;
         }
-        if ( frobneigh < FThresh[z] ) {
+        // if ( frobneigh < FThresh[z] ) {
+        if ( frobneigh < FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z] ) {
             L1 -> SetTuple1(id,0.0);
             L2 -> SetTuple1(id,0.0);
             L3 -> SetTuple1(id,0.0);
@@ -1190,6 +1219,38 @@ void EstimateTubuleWidth(vtkSmartPointer<vtkPolyData> Skeleton, vtkSmartPointer<
     mitoObject -> attributes.push_back(newAtt_1);
     attribute newAtt_2 = {"Std width (um)",sqrt(sd_w/N - (av_w/N)*(av_w/N))};
     mitoObject -> attributes.push_back(newAtt_2);
+
+}
+
+/* ================================================================
+   TUBULES LENGTH
+=================================================================*/
+
+void EstimateTubuleLength(vtkSmartPointer<vtkPolyData> Skeleton) {
+
+    vtkIdType N = Skeleton -> GetNumberOfPoints();
+    vtkSmartPointer<vtkDoubleArray> Length = vtkSmartPointer<vtkDoubleArray>::New();
+    Length -> SetName("Length");
+    Length -> SetNumberOfComponents(1);
+    Length -> SetNumberOfTuples(N);
+
+    double h, r1[3], r2[3], R1, R2, length;
+    vtkPoints *Points = Skeleton -> GetPoints();
+    for (vtkIdType edge=Skeleton->GetNumberOfCells();edge--;) {
+        length = 0.0;
+        for (vtkIdType n = 1; n < Skeleton->GetCell(edge)->GetNumberOfPoints(); n++) {
+            Skeleton -> GetPoint(Skeleton->GetCell(edge)->GetPointId(n-1),r1);
+            Skeleton -> GetPoint(Skeleton->GetCell(edge)->GetPointId(n  ),r2);
+            h = sqrt(pow(r2[0]-r1[0],2)+pow(r2[1]-r1[1],2)+pow(r2[2]-r1[2],2));
+            length += h;
+        }
+        for (vtkIdType n = 0; n < Skeleton->GetCell(edge)->GetNumberOfPoints(); n++) {
+            Length -> SetTuple1(Skeleton->GetCell(edge)->GetPointId(n),length);
+        }
+    }
+
+    Length -> Modified();
+    Skeleton -> GetPointData() -> AddArray(Length);
 
 }
 
@@ -1607,6 +1668,8 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     //-------------
 
     EstimateTubuleWidth(Skeleton,Surface,mitoObject);
+
+    EstimateTubuleLength(Skeleton);
 
     //INTENSITY PROFILE ALONG THE SKELETON
     //------------------------------------

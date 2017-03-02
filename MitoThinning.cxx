@@ -977,7 +977,7 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
 
     if (_export_graph_files) ExportGraphFiles(PolyData,NumberOfNodes,ValidId,mitoObject->FileName.c_str());
 
-    ExportNodes(PolyData,NumberOfNodes,ValidId,mitoObject);
+    //ExportNodes(PolyData,NumberOfNodes,ValidId,mitoObject);
 
     return PolyData;
 }

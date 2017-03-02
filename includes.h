@@ -21,6 +21,7 @@
 #include <vtkSphereSource.h>
 #include <vtkSmartPointer.h>
 #include <vtkImageResample.h>
+#include <vtkImageMedian3D.h>
 #include <vtkStructuredPoints.h>
 #include <vtkInformationVector.h>
 #include <vtkUnsignedCharArray.h>
@@ -63,6 +64,6 @@
 
 #endif
 
-#define DEBUG
+// #define DEBUG
 #include "ssThinning.h"
 #include "MitoThinning.h"
