@@ -246,6 +246,10 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
     for (node = 0; node < nnodes; node++) {
         if ( ValidId[node] >= 0 ) {
             Points -> GetPoint(node,r);
+
+            #ifdef DEBUG
+                printf("Node = %d\n",(int)node);
+            #endif
         
             vtkSmartPointer<vtkSphereSource> Node = vtkSmartPointer<vtkSphereSource>::New();
             if (_scale_polydata_before_save) {
@@ -256,35 +260,35 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
                 Node -> SetCenter(r[0]+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
             }
 
-            Node -> SetThetaResolution(36);
-            Node -> SetPhiResolution(36);
+            Node -> SetThetaResolution(6);
+            Node -> SetPhiResolution(6);
             Node -> Update();
             Append -> AddInputData(Node->GetOutput());
             Append -> Update();
 
-            if (_export_nodes_label) {
-                sprintf(node_txt,"%ld",ValidId[node]);
-                vtkSmartPointer<vtkVectorText> PolyText = vtkSmartPointer<vtkVectorText>::New();
-                PolyText -> SetText(node_txt);
-                PolyText -> Update();
+            // if (_export_nodes_label) {
+            //     sprintf(node_txt,"%ld",ValidId[node]);
+            //     vtkSmartPointer<vtkVectorText> PolyText = vtkSmartPointer<vtkVectorText>::New();
+            //     PolyText -> SetText(node_txt);
+            //     PolyText -> Update();
 
-                vtkSmartPointer<vtkTransform> T = vtkSmartPointer<vtkTransform>::New();
-                if (_scale_polydata_before_save) {
-                    T -> Translate(_dxy*(r[0]+1+mitoObject->Ox),_dxy*(r[1]+1+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
-                    T -> Scale(2*_dxy,2*_dxy,1);
-                } else {
-                    T -> Translate(r[0]+2+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
-                    T -> Scale(2,2,1);
-                }
+            //     vtkSmartPointer<vtkTransform> T = vtkSmartPointer<vtkTransform>::New();
+            //     if (_scale_polydata_before_save) {
+            //         T -> Translate(_dxy*(r[0]+1+mitoObject->Ox),_dxy*(r[1]+1+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
+            //         T -> Scale(2*_dxy,2*_dxy,1);
+            //     } else {
+            //         T -> Translate(r[0]+2+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
+            //         T -> Scale(2,2,1);
+            //     }
 
-                vtkSmartPointer<vtkTransformPolyDataFilter> Trans = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
-                Trans -> SetInputData(PolyText->GetOutput());
-                Trans -> SetTransform(T);
-                Trans -> Update();
+            //     vtkSmartPointer<vtkTransformPolyDataFilter> Trans = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+            //     Trans -> SetInputData(PolyText->GetOutput());
+            //     Trans -> SetTransform(T);
+            //     Trans -> Update();
 
-                Append -> AddInputData(Trans -> GetOutput());
-                Append -> Update();
-            }
+            //     Append -> AddInputData(Trans -> GetOutput());
+            //     Append -> Update();
+            // }
         }
 
     }
