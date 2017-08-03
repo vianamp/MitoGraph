@@ -972,6 +972,25 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
         }
     }
 
+    //Creating a binary array called nodes in which points
+    //we mark true nodes
+
+    vtkSmartPointer<vtkUnsignedCharArray> TrueNode = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    TrueNode -> SetNumberOfComponents(1);
+    TrueNode -> SetNumberOfTuples(PolyData->GetNumberOfPoints());
+    TrueNode -> FillComponent(0,0);
+    TrueNode -> SetName("Nodes");
+
+    for (node = 0; node < NumberOfNodes; node++) {
+        if (ValidId[node]>=0) {
+            TrueNode -> SetTuple1(node,1);
+        }
+    }
+
+    PolyData -> GetPointData() -> AddArray(TrueNode);
+    
+    // Export graph files
+
     #ifdef DEBUG
         printf("\t#Edges after filtering = %lld\n",PolyData->GetNumberOfCells());
         printf("Skeletonization done!\n");

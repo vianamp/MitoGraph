@@ -64,6 +64,6 @@
 
 #endif
 
-#define DEBUG
+// #define DEBUG
 #include "ssThinning.h"
 #include "MitoThinning.h"
