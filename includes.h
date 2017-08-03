@@ -5,12 +5,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <dirent.h>
+#include <unistd.h>
 
 #include <vtkMath.h>
 #include <vtkImageFlip.h>
 #include <vtkPolyLine.h>
 #include <vtkCellArray.h>
-#include <vtkLongArray.h>
+#include <vtkTypeInt64Array.h>
 #include <vtkImageData.h>
 #include <vtkDataArray.h>
 #include <vtkTransform.h>
@@ -55,6 +56,7 @@
 	struct attribute { std::string name; double value; };
 
 	struct _mitoObject {
+		bool _analyze;
 		bool _binary_input;
 	    std::string Type, FileName;
 	    double Ox, Oy, Oz;

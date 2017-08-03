@@ -49,7 +49,7 @@ char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, int x
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value different of "value" in the vector "Volume".
-char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value);
+char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, int x, int y, int z, long int value);
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value given by "value".
@@ -57,25 +57,25 @@ char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, int x, i
 
 // Returns the number of voxels around the voxel (x,y,z) with
 // value "value" in the vector "Volume".
-char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value);
+char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, int x, int y, int z, long int value);
 
 // Returns one neighbor of (x,y,z) with value "value" in the
 // vector "Volume".
-vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value);
+vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, long int value);
 
 // Returns one neighbor of (x,y,z) with value different of
 // "value" in the vector "Volume".
-vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value);
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, long int value);
 
 // Returns one neighbor of (x,y,z) with value different of
 // "value".
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, long int value);
 
 // Merge together junctions that touch each other.
-bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume);
+bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume);
 
 // Track an edge starting at voxel (x,y,z) in the volume "Volume".
-std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume);
+std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume);
 
 // Returns an adjacency edge "edge_label".
 long int GetOneAdjacentEdge(vtkSmartPointer<vtkPolyData> PolyData, long int edge_label, long int junction_label, bool *found_on_left);
@@ -514,7 +514,7 @@ char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, int x
     return nn;
 }
 
-char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value) {
+char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, int x, int y, int z, long int value) {
     double r[3];
     char nn = 0;
     vtkIdType idk;
@@ -534,7 +534,7 @@ char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, int x, i
     return nn;
 }
 
-char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, int x, int y, int z, long int value) {
+char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, int x, int y, int z, long int value) {
     double r[3];
     char nn = 0;
     vtkIdType idk;
@@ -545,7 +545,7 @@ char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmart
     return nn;
 }
 
-vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value) {
+vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
@@ -556,7 +556,7 @@ vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageD
     return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
-vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume, long int value) {
+vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
         idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
@@ -576,7 +576,7 @@ vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkIma
     return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
 }
 
-bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume) {
+bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume) {
     char nk;
     double r[3];
     vtkIdType id;
@@ -601,7 +601,7 @@ bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData
     return _has_changed;
 }
 
-std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkLongArray> Volume) {
+std::list<vtkIdType> GetEdgeStartingAt(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume) {
     double r[3];
     vtkIdType idk;
     std::list<vtkIdType> Edge;
@@ -688,7 +688,7 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
         }
     }
 
-    vtkSmartPointer<vtkLongArray> Volume = vtkSmartPointer<vtkLongArray>::New();
+    vtkSmartPointer<vtkTypeInt64Array> Volume = vtkSmartPointer<vtkTypeInt64Array>::New();
     Volume -> SetNumberOfComponents(1);
     Volume -> SetNumberOfTuples(N);
 
@@ -972,20 +972,27 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
         }
     }
 
-    //Creating a binary array called nodes in which points
-    //we mark true nodes
+    // for (node = 0; node < NumberOfNodes; node++) {
+    //     printf("%d\t%d\n",(int)node,(int)ValidId[node]);
+    // }
 
-    vtkSmartPointer<vtkUnsignedCharArray> TrueNode = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    //Creating an array called nodes used to mark true nodes
+
+    vtkSmartPointer<vtkTypeInt64Array> TrueNode = vtkSmartPointer<vtkTypeInt64Array>::New();
     TrueNode -> SetNumberOfComponents(1);
     TrueNode -> SetNumberOfTuples(PolyData->GetNumberOfPoints());
-    TrueNode -> FillComponent(0,0);
+    TrueNode -> FillComponent(0,-1);
     TrueNode -> SetName("Nodes");
 
+    valid_id = 0;
     for (node = 0; node < NumberOfNodes; node++) {
-        if (ValidId[node]>=0) {
-            TrueNode -> SetTuple1(node,1);
+        if (ValidId[node]>-1) {
+            TrueNode -> SetTuple1(node,valid_id);
+            valid_id++;
         }
     }
+
+    TrueNode -> Modified();
 
     PolyData -> GetPointData() -> AddArray(TrueNode);
     

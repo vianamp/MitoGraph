@@ -649,8 +649,8 @@ void FillHoles(vtkSmartPointer<vtkImageData> ImageData) {
 
     vtkSmartPointer<vtkIdList> CurrA = vtkSmartPointer<vtkIdList>::New();
     vtkSmartPointer<vtkIdList> NextA = vtkSmartPointer<vtkIdList>::New();
-    vtkSmartPointer<vtkLongArray> CSz = vtkSmartPointer<vtkLongArray>::New();
-    vtkSmartPointer<vtkLongArray> Volume = vtkSmartPointer<vtkLongArray>::New();
+    vtkSmartPointer<vtkTypeInt64Array> CSz = vtkSmartPointer<vtkTypeInt64Array>::New();
+    vtkSmartPointer<vtkTypeInt64Array> Volume = vtkSmartPointer<vtkTypeInt64Array>::New();
     Volume -> SetNumberOfComponents(1);
     Volume -> SetNumberOfTuples(N);
     Volume -> FillComponent(0,0);
@@ -1650,6 +1650,21 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     SavePolyData(Surface,(mitoObject->FileName+"_mitosurface.vtk").c_str());
 
 
+    //CONNECTED COMPONENTS FOR GRAPH ANALYSIS
+    //---------------------------------------
+
+    std::vector<long int> CSz;
+    vtkSmartPointer<vtkTypeInt64Array> CCVolume = vtkSmartPointer<vtkTypeInt64Array>::New();
+    if (mitoObject->_analyze) {
+
+        CCVolume -> SetNumberOfComponents(1);
+        CCVolume -> SetNumberOfTuples(N);
+        CCVolume -> FillComponent(0,0);
+
+        long int ncc = LabelConnectedComponents(Binary,CCVolume,CSz,26,0);
+
+    }
+
     //SKELETONIZATION
     //---------------
 
@@ -1662,10 +1677,44 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
     Skeleton -> DeepCopy(Clean->GetOutput());
 
-    ScalePolyData(Skeleton,mitoObject);
+    //CONNECTED COMPONENTS FOR GRAPH ANALYSIS
+    //---------------------------------------
+
+    if (mitoObject->_analyze) {
+
+        FILE *fvol = fopen((mitoObject->FileName+".cc").c_str(),"w");
+        fprintf(fvol,"Node\tBelonging_CC\tVol_Of_Belonging_CC_From_Img_(um3)\n");
+
+        double r[3];
+        long int node_id, cc_id, cc_tmp;
+        for (id = 0; id < Skeleton->GetNumberOfPoints(); id++) {
+            node_id = (long int)Skeleton -> GetPointData() -> GetArray("Nodes") -> GetTuple1(id);
+            if (node_id > -1) {
+                Skeleton -> GetPoint(id,r);
+                for (char i = 0; i < 6; i++) {
+                    cc_id = (long int)CCVolume->GetTuple1(Binary -> FindPoint((int)r[0]+ssdx_sort[i],(int)r[1]+ssdy_sort[i],(int)r[2]+ssdz_sort[i]));
+                    // printf("%d\t%d\n",(int)node_id,(int)cc_id);
+                    if (cc_id < 0) break;
+                }
+                if (cc_id < 0) {
+                    fprintf(fvol,"%d\t%d\t%1.5f\n",(int)(node_id),(int)std::abs(cc_id),CSz[-cc_id-1]*(_dxy*_dxy*_dz));
+                } else {
+                    // If the voxel falls off the binary structure we assign volume zero.
+                    // This will not affect the final report of volume per cc, once we
+                    // use the max() function to get the volume of a given component.
+                    fprintf(fvol,"%d\t%d\t0.00000\n",(int)(node_id),(int)std::abs(cc_id));
+                }
+            }
+        }
+
+        fclose(fvol);
+
+    }
 
     //TUBULES WIDTH
     //-------------
+
+    ScalePolyData(Skeleton,mitoObject);
 
     EstimateTubuleWidth(Skeleton,Surface,mitoObject);
 
@@ -1721,6 +1770,28 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     SavePolyData(Skeleton,(mitoObject->FileName+"_skeleton.vtk").c_str());
 
     return 0;
+}
+
+/* ================================================================
+   GRAPH ANALYSIS
+=================================================================*/
+
+void RunGraphAnalysis(std::string FileName) {
+
+    //GET CURRENT WORKING DIRECTORY
+    //-----------------------------
+
+    char cwd_char[1024];
+    getcwd(cwd_char, sizeof(cwd_char));
+    std::string cwd = cwd_char;
+
+    //RUN R SCRIPT FOR GRAPH ANALYSIS
+    //-------------------------------
+
+    std::string cmd;
+    cmd = "Rscript --vanilla "+cwd+"/../GraphAnalyzer.R " + FileName;
+    system(cmd.c_str());
+
 }
 
 /* ================================================================
@@ -1822,6 +1893,7 @@ int main(int argc, char *argv[]) {
     mitoObject._sigmai = _sigmai;
     mitoObject._sigmaf = _sigmaf;
     mitoObject._dsigma = _dsigma;
+    mitoObject._analyze = _analyze;
     mitoObject._binary_input = _binary_input;
 
     for (int i = 0; i < Files.size(); i++) {
@@ -1841,8 +1913,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (_analyze) {
-            cmd = "Rscript --vanilla GraphAnalyzer.R " + Files[i];
-            system(cmd.c_str());
+            RunGraphAnalysis(Files[i]);
         }
 
     }

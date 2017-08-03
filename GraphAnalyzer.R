@@ -5,6 +5,7 @@
 options(warn=-1)
 suppressMessages(library(igraph))
 
+# args = '/Users/mviana/Desktop/MitoGraph/data/MitoGraphTest001'
 args = commandArgs(trailingOnly=TRUE)
 
 FileName <- args[1]
@@ -17,6 +18,16 @@ G <- read.table(paste(FileName,'.gnet',sep=''), skip=1, col.names=c('Source','Ta
 G <- graph.data.frame(as.data.frame(G), directed=F)
 
 #
+# Loading volume information
+#
+
+Vol <- data.frame(read.table(paste(FileName,'.cc',sep=''), skip=1))
+names(Vol) <- c('node','cc','vol_cc')
+
+ids <- as.numeric(V(G)$name)
+V(G)$cc_vol <- Vol$vol_cc[match(ids,Vol$node)]
+
+#
 # Connected component analysis
 #
 
@@ -24,12 +35,12 @@ List <- decompose(G)
 
 Table <- NULL
 for (g in List) {
-  Table <- rbind(Table,data.frame(vcount(g), ecount(g), sum(E(g)$Length)))
+  Table <- rbind(Table,data.frame(vcount(g), ecount(g), sum(E(g)$Length), max(V(g)$cc_vol)))
 }
 
-names(Table) <- c('nodes','edges','length_(um)')
+names(Table) <- c('nodes','edges','length_(um)','vol_from_img_(um3)')
 
-Table <- Table[order(Table$length, decreasing=T),]
+Table <- Table[order(Table[,4], decreasing=T),]
 
 #
 # Loading global measurements
