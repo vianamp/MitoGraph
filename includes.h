@@ -5,7 +5,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <dirent.h>
-#include <unistd.h>
 
 #include <vtkMath.h>
 #include <vtkImageFlip.h>

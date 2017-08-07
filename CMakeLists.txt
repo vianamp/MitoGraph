@@ -1,15 +1,16 @@
 
-cmake_minimum_required(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 PROJECT(MitoGraph)
 
-find_package(VTK REQUIRED)
-include(${VTK_USE_FILE})
+FIND_PACKAGE(VTK 7.0)
+INCLUDE(${VTK_USE_FILE})
 
-add_executable(MitoGraph MACOSX_BUNDLE MitoGraph MitoThinning ssThinning)
+ADD_EXECUTABLE(MitoGraph MACOSX_BUNDLE MitoGraph MitoThinning ssThinning)
 
 if(VTK_LIBRARIES)
-  target_link_libraries(MitoGraph ${VTK_LIBRARIES})
+  TARGET_LINK_LIBRARIES(MitoGraph ${VTK_LIBRARIES})
 else()
-  target_link_libraries(MitoGraph vtkHybrid vtkWidgets)
+  TARGET_LINK_LIBRARIES(MitoGraph vtkHybrid vtkWidgets)
 endif()
+

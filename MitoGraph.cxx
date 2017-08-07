@@ -1778,18 +1778,11 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
 void RunGraphAnalysis(std::string FileName) {
 
-    //GET CURRENT WORKING DIRECTORY
-    //-----------------------------
-
-    char cwd_char[1024];
-    getcwd(cwd_char, sizeof(cwd_char));
-    std::string cwd = cwd_char;
-
     //RUN R SCRIPT FOR GRAPH ANALYSIS
     //-------------------------------
 
     std::string cmd;
-    cmd = "Rscript --vanilla "+cwd+"/../GraphAnalyzer.R " + FileName;
+    cmd = "Rscript --vanilla GraphAnalyzer.R " + FileName;
     system(cmd.c_str());
 
 }
