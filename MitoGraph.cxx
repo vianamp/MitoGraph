@@ -1,6 +1,6 @@
 // ==================================================================
 // MitoGraph: Quantifying Mitochondrial Content in Living Cells
-// Written by Matheus P. Viana - vianamp@gmail.com - 2014.05.28
+// Written by Matheus P. Viana - vianamp@gmail.com - 2018.01.08
 //
 // Susanne Rafelski Lab, University of California Irvine
 //
@@ -25,12 +25,10 @@
     double _dxy, _dz = -1.0;
     bool _export_graph_files = true;
     bool _export_image_resampled = false;
-    bool _adaptive_threshold = false;
     bool _scale_polydata_before_save = true;
     bool _export_nodes_label = true;
     double _div_threshold = 0.1666667;
     bool _checkonly = false;
-    bool _width = false;
     double _resample = -1.0;
     bool _improve_skeleton_quality = true; // when this is true nodes with degree zero
                                            // expanded and detected. Additional checking
@@ -45,14 +43,6 @@
     int ssdx_sort[26] = { 0,-1, 0, 1, 0, 0,-1, 0, 1, 0,-1, 1, 1,-1,-1, 0, 1, 0, -1, 1, 1,-1,-1, 1, 1,-1};
     int ssdy_sort[26] = { 0, 0,-1, 0, 1, 0, 0,-1, 0, 1,-1,-1, 1, 1, 0,-1, 0, 1, -1,-1, 1, 1,-1,-1, 1, 1};
     int ssdz_sort[26] = {-1, 0, 0, 0, 0, 1,-1,-1,-1,-1, 0, 0, 0, 0, 1, 1, 1, 1, -1,-1,-1,-1, 1, 1, 1, 1};
-
-    double GKernel[7][7] = {{0.000036,0.000363,0.001446,0.002291,0.001446,0.000363,0.000036},
-                            {0.000363,0.003676,0.014662,0.023226,0.014662,0.003676,0.000363},
-                            {0.001446,0.014662,0.058488,0.092651,0.058488,0.014662,0.001446},
-                            {0.002291,0.023226,0.092651,0.146768,0.092651,0.023226,0.002291},
-                            {0.001446,0.014662,0.058488,0.092651,0.058488,0.014662,0.001446},
-                            {0.000363,0.003676,0.014662,0.023226,0.014662,0.003676,0.000363},
-                            {0.000036,0.000363,0.001446,0.002291,0.001446,0.000363,0.000036}};
 
 /**========================================================
  Auxiliar functions
@@ -91,7 +81,7 @@ double FrobeniusNorm(double M[3][3]);
 void ScalePolyData(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject *mitoObject);
 
 // Stores all files with a given extension in a vector
-int ScanFolderForThisExtension(const char _impath[], const char ext[], std::vector<std::string> List);
+int ScanFolderForThisExtension(std::string _impath, std::string ext, std::vector<std::string> List);
 
 /* ================================================================
    IMAGE TRANSFORM
@@ -131,6 +121,9 @@ void ExportDetailedMaxProjection(_mitoObject *mitoObject);
 // Export results in global as well as individual files
 void DumpResults(_mitoObject mitoObject);
 
+// Export configuration file used to run MitoGraph
+void ExportConfigFile(_mitoObject *mitoObject);
+
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
 =================================================================*/
@@ -142,11 +135,11 @@ void GetImageDerivativeDiscrete(vtkSmartPointer<vtkDataArray> Image, int *dim, c
 // This routine calculate the Hessian matrix for each point
 // of a 3D volume and its eigenvalues (Discrete Approach)
 void GetHessianEigenvaluesDiscrete(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
-void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
+void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkImageData *Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3, _mitoObject *mitoObjectt);
 
 // Calculate the vesselness at each point of a 3D volume based
 // based on the Hessian eigenvalues
-void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3);
+void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3, _mitoObject *mitoObjectt);
 
 // Calculate the vesselness over a range of different scales
 int MultiscaleVesselness(_mitoObject *mitoObject);
@@ -254,15 +247,15 @@ int PoissonGen(double mu) {
     return k;
 }
 
-int ScanFolderForThisExtension(const char _root[], const char ext[], std::vector<std::string> *List) {
+int ScanFolderForThisExtension(std::string _root, std::string ext, std::vector<std::string> *List) {
     DIR *dir;
     int ext_p;
     struct dirent *ent;
     std::string _dir_name;
-    if ((dir = opendir (_root)) != NULL) {
+    if ((dir = opendir (_root.c_str())) != NULL) {
       while ((ent = readdir (dir)) != NULL) {
         _dir_name = std::string(ent->d_name);
-        ext_p = (int)_dir_name.find(std::string(ext));
+        ext_p = (int)_dir_name.find(ext);
         if (ext_p > 0) {
             #ifdef DEBUG
                 printf("File found: %s\n",_dir_name.c_str());
@@ -538,6 +531,37 @@ void DumpResults(const _mitoObject mitoObject) {
 
 }
 
+void ExportConfigFile(const _mitoObject mitoObject) {
+
+    const char *_t = "[True]";
+    const char *_f = "[False]";
+
+    FILE *f = fopen((mitoObject.Folder+"/mitograph.config").c_str(),"w");
+
+    if (mitoObject._adaptive_threshold) {
+        fprintf(f,"MitoGraph %s [Adaptive Algorithm]\n",MITOGRAPH_VERSION.c_str());
+    } else {
+        fprintf(f,"MitoGraph %s\n",MITOGRAPH_VERSION.c_str());
+    }
+    fprintf(f,"Folder: %s\n",mitoObject.Folder.c_str());
+    if (mitoObject._adaptive_threshold) {
+        fprintf(f,"NBlocks: %d\n",mitoObject._nblks);
+    }
+    fprintf(f,"Pixel size: -xy %1.4fum, -z %1.4fum\n",_dxy,_dz);
+    fprintf(f,"Average tubule radius: -r %1.4fum\n",_rad);
+    fprintf(f,"Scales: -scales %1.2f",mitoObject._sigmai);
+    for ( double sigma = mitoObject._sigmai+mitoObject._dsigma; sigma < mitoObject._sigmaf+0.5*mitoObject._dsigma; sigma += mitoObject._dsigma )
+        fprintf(f," %1.2f",sigma);
+    fprintf(f,"\nPost-divergence threshold: -threshold %1.5f\n",_div_threshold);
+    fprintf(f,"Input type: %s\n",mitoObject.Type.c_str());
+    fprintf(f,"Analyze: %s\n",mitoObject._analyze?_t:_f);
+    fprintf(f,"Binary input: %s\n",mitoObject._binary_input?_t:_f);
+    time_t now = time(0);
+    fprintf(f,"%s\n",ctime(&now));
+    fclose(f);
+
+}
+
 /* ================================================================
    IMAGE TRANSFORM
 =================================================================*/
@@ -725,58 +749,6 @@ void FillHoles(vtkSmartPointer<vtkImageData> ImageData) {
 
 }
 
-void Gaussian2DBlur(vtkSmartPointer<vtkImageData> Volume) {
-
-    int *Dim = Volume -> GetDimensions();
-    vtkSmartPointer<vtkImageData> VolumeBlurred = vtkSmartPointer<vtkImageData>::New();
-    VolumeBlurred -> DeepCopy(Volume);
-    
-    int i, j;
-    double v;
-    int x, y, z;
-    vtkIdType id;
-    for (z = Dim[2]; z--;) {    
-        for (x = 3; x < Dim[0]-3; x++) {
-            for (y = 3; y < Dim[1]-3; y++) {
-                v = 0.0;
-                for (i = -3; i <= 3; i++) {
-                    for (j = -3; j <= 3; j++) {
-                        id = Volume -> FindPoint(x+i,y+j,z);
-                        v += GKernel[i+3][j+3] * (Volume->GetPointData()->GetScalars()->GetTuple1(id));
-                    }
-                }
-                id = Volume -> FindPoint(x,y,z);
-                VolumeBlurred -> GetPointData() -> GetScalars() -> SetTuple1(id,v);
-            }
-        }
-    }
-    Volume -> DeepCopy(VolumeBlurred);
-}
-
-void NNDeblur(vtkSmartPointer<vtkImageData> Volume, vtkSmartPointer<vtkImageData> VolumeBlurred) {
-    int *Dim = Volume -> GetDimensions();
-    
-    int x, y, z;
-    vtkIdType id;
-    double v, vlower, vupper;
-    for (z = 1; z < Dim[2]-1; z++) {    
-        for (x = Dim[0]; x--;) {
-            for (y = Dim[1]; y--;) {
-                id = Volume -> FindPoint(x,y,z-1);
-                vlower = VolumeBlurred -> GetPointData() -> GetScalars() -> GetTuple1(id);
-                id = Volume -> FindPoint(x,y,z+1);
-                vupper = VolumeBlurred -> GetPointData() -> GetScalars() -> GetTuple1(id);
-                id = Volume -> FindPoint(x,y,z);
-                v = Volume -> GetPointData() -> GetScalars() -> GetTuple1(id);
-
-                v = v - 0.20 * ( vlower + vupper );
-                Volume -> GetPointData() -> GetScalars() -> SetTuple1(id, (v>0)?v:0.0 );
-            }
-        }
-    }
-
-}
-
 /* ================================================================
    ROUTINES FOR VESSELNESS CALCUATION VIA DISCRETE APPROCH
 =================================================================*/
@@ -940,7 +912,7 @@ void GetHessianEigenvaluesDiscrete(double sigma, vtkSmartPointer<vtkImageData> I
 
 }
 
-void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3) {
+void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3, _mitoObject *mitoObject) {
     #ifdef DEBUG
         printf("Calculating Hessian Eigeinvalues (Discrete)...\n");
     #endif
@@ -986,21 +958,18 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
     GetImageDerivativeDiscrete(Dz,Dim,'y',Dyz);
 
     int x, y, z;
-    int blks = 10;
+    int nblks = mitoObject->_nblks;
 
-    double ***FThresh2 = new double**[blks];
-    for ( int qx = blks; qx--; ) {
-        FThresh2[qx] = new double*[blks];
-        for ( int qy = blks; qy--; ) {
-            FThresh2[qx][qy] = new double[Dim[2]];
+    double ***FThresh = new double**[nblks];
+    for ( int qx = nblks; qx--; ) {
+        FThresh[qx] = new double*[nblks];
+        for ( int qy = nblks; qy--; ) {
+            FThresh[qx][qy] = new double[Dim[2]];
             for ( id = Dim[2]; id--; ) {
-                FThresh2[qx][qy][id] = 0.0;
+                FThresh[qx][qy][id] = 0.0;
             }
         }
     }
-
-    double *FThresh = new double[Dim[2]];
-    for ( id = Dim[2]; id--; ) FThresh[id] = 0.0;
 
     for ( id = N; id--; ) {
         l1 = l2 = l3 = 0.0;
@@ -1020,19 +989,16 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
         x = GetX(id,Dim);
         y = GetY(id,Dim);
         z = GetZ(id,Dim);
-        FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z] = (frobnorm > FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z]) ? frobnorm : FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z];
-        FThresh[z] = (frobnorm > FThresh[z]) ? frobnorm : FThresh[z];
+        FThresh[int((1.0*nblks*x)/Dim[0])][int((1.0*nblks*y)/Dim[1])][z] = (frobnorm > FThresh[int((1.0*nblks*x)/Dim[0])][int((1.0*nblks*y)/Dim[1])][z]) ? frobnorm : FThresh[int((1.0*nblks*x)/Dim[0])][int((1.0*nblks*y)/Dim[1])][z];
     }
 
     for ( z = Dim[2]; z--; ) {
-        for ( x = blks; x--; ) {
-            for ( y = blks; y--; ) {
-                FThresh2[x][y][z] = sqrt(FThresh2[x][y][z]);
+        for ( x = nblks; x--; ) {
+            for ( y = nblks; y--; ) {
+                FThresh[x][y][z] = sqrt(FThresh[x][y][z]);
             }
         }
     }
-
-    for ( z = Dim[2]; z--; ) FThresh[z] = sqrt(FThresh[z]);
 
     //
     // Testing Region-Based Threshold
@@ -1051,8 +1017,7 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
             }
             frobneigh /= 6.0;
         }
-        // if ( frobneigh < FThresh[z] ) {
-        if ( frobneigh < FThresh2[int((1.0*blks*x)/Dim[0])][int((1.0*blks*y)/Dim[1])][z] ) {
+        if ( frobneigh < FThresh[int((1.0*nblks*x)/Dim[0])][int((1.0*nblks*y)/Dim[1])][z] ) {
             L1 -> SetTuple1(id,0.0);
             L2 -> SetTuple1(id,0.0);
             L3 -> SetTuple1(id,0.0);
@@ -1062,14 +1027,21 @@ void GetHessianEigenvaluesDiscreteZDependentThreshold(double sigma, vtkSmartPoin
     L2 -> Modified();
     L3 -> Modified();
 
+    for ( int qx = nblks; qx--; ) {
+        for ( int qy = nblks; qy--; ) {
+            delete[] FThresh[qx][qy];
+        }
+        delete[] FThresh[qx];
+    }
     delete[] FThresh;
+
 }
 
 /* ================================================================
    VESSELNESS ROUTINE
 =================================================================*/
 
-void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3) {
+void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkDoubleArray> L1, vtkSmartPointer<vtkDoubleArray> L2, vtkSmartPointer<vtkDoubleArray> L3, _mitoObject *mitoObject) {
 
     #ifdef DEBUG
         printf("Calculating Vesselness...\n");
@@ -1084,8 +1056,8 @@ void GetVesselness(double sigma, vtkSmartPointer<vtkImageData> Image, vtkSmartPo
     double l1, l2, l3, ra, ran, rb, rbn, st, stn, ft_old, ft_new;
     vtkIdType id, N = Image -> GetNumberOfPoints();
 
-    if (_adaptive_threshold) {
-        GetHessianEigenvaluesDiscreteZDependentThreshold(sigma,Image,L1,L2,L3);
+    if (mitoObject->_adaptive_threshold) {
+        GetHessianEigenvaluesDiscreteZDependentThreshold(sigma,Image,L1,L2,L3,mitoObject);
     } else {
         GetHessianEigenvaluesDiscrete(sigma,Image,L1,L2,L3);
     }
@@ -1472,35 +1444,6 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     mitoObject->Oz = Origin[2];
     Image -> SetOrigin(0,0,0);
 
-    /* // TEST (NEED TO IMPROVE THE 2D CONVOLUTION PEFORMANCE )
-
-    sprintf(_fullpath,"%s_or.vtk",FileName);
-    SaveImageData(Image,_fullpath,false);
-
-    if (1) {
-        #ifdef DEBUG
-            printf("Nearest Neighbor Deblur...\n");
-        #endif
-
-        vtkSmartPointer<vtkImageData> VolumeBlurred = vtkSmartPointer<vtkImageData>::New();
-        VolumeBlurred -> DeepCopy(Image);
-
-        for (int i = 25; i--;) {
-            Gaussian2DBlur(VolumeBlurred);
-            printf("\t[%1.2f%%]\r",100.0-((100.0*i)/25));
-            fflush(stdout);
-        }
-
-        NNDeblur(Image,VolumeBlurred);
-
-        sprintf(_fullpath,"%s_db.vtk",FileName);
-        SaveImageData(Image,_fullpath,false);
-
-        return 0;
-
-    }
-    */
-
     // Conversion 16-bit to 8-bit
     Image = Convert16To8bit(Image);
 
@@ -1547,7 +1490,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
                 printf("Running sigma = %1.3f\n",sigma);
             #endif
             
-            GetVesselness(sigma,Image,AUX1,AUX2,AUX3);
+            GetVesselness(sigma,Image,AUX1,AUX2,AUX3,mitoObject);
             
             for ( id = N; id--; ) {
                 vn = AUX1 -> GetTuple1(id);
@@ -1749,13 +1692,14 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
     vtkDataArray *I = Skeleton -> GetPointData() -> GetArray("Intensity");
 
     vtkIdType p;
-    double length;
-    FILE *fw = fopen((mitoObject->FileName+".width").c_str(),"w");
+    double r[3];
+    FILE *fw = fopen((mitoObject->FileName+".txt").c_str(),"w");
+    fprintf(fw,"line_id\tpoint_id\tx\ty\tz\twidth_(um)\tpixel_intensity\n");
     for (vtkIdType edge = 0; edge < Skeleton -> GetNumberOfCells(); edge++) {
-        length = GetEdgeLength(edge,Skeleton);
         for (vtkIdType id = 0; id < Skeleton -> GetCell(edge) -> GetNumberOfPoints(); id++) {
             p = Skeleton -> GetCell(edge) -> GetPointId(id);
-            fprintf(fw,"%d\t%1.5f\t%1.5f\t%1.5f\n",(int)edge,length,W->GetTuple1(p),I->GetTuple1(p));
+            Skeleton -> GetPoint(p,r);
+            fprintf(fw,"%d\t%d\t%1.5f\t%1.5f\t%1.5f\t%1.5f\t%1.5f\n",(int)edge,(int)id,r[0],r[1],r[2],W->GetTuple1(p),I->GetTuple1(p));
         }
     }
     fclose(fw);
@@ -1796,19 +1740,28 @@ int main(int argc, char *argv[]) {
     int i;
     char _impath[256];
     sprintf(_impath,"");
-    double _sigmai = 1.00;
-    double _sigmaf = 1.50;
     bool _vtk_input = false;
-    bool _binary_input = false;
-    bool _analyze = false;
-    int _nsigma = 6;
+
+    _mitoObject mitoObject;
+
+    mitoObject.Type = "TIF";
+    mitoObject._analyze = false;
+    mitoObject._binary_input = false;
+    mitoObject._adaptive_threshold = false;
+    mitoObject._nblks = 3;
+    mitoObject._sigmai = 1.00;
+    mitoObject._sigmaf = 1.50;
+    mitoObject._nsigma = 6;
 
     // Collecting input parameters
     for (i = 0; i < argc; i++) {
         if (!strcmp(argv[i],"-vtk")) {
             _vtk_input = true;
+            mitoObject.Type = "VTK";
         }
         if (!strcmp(argv[i],"-path")) {
+            mitoObject.Folder = argv[i+1];
+            mitoObject.Folder += "/";
             sprintf(_impath,"%s/",argv[i+1]);
         }
         if (!strcmp(argv[i],"-xy")) {
@@ -1821,12 +1774,13 @@ int main(int argc, char *argv[]) {
             _rad = atof(argv[i+1]);
         }
         if (!strcmp(argv[i],"-scales")) {
-            _sigmai = atof(argv[i+1]);
-            _sigmaf = atof(argv[i+2]);
-            _nsigma = atoi(argv[i+3]);
+            mitoObject._sigmai = atof(argv[i+1]);
+            mitoObject._sigmaf = atof(argv[i+2]);
+            mitoObject._nsigma = atoi(argv[i+3]);
         }
         if (!strcmp(argv[i],"-adaptive")) {
-            _adaptive_threshold = true;
+            mitoObject._adaptive_threshold = true;
+            mitoObject._nblks = atoi(argv[i+1]);
         }
         if (!strcmp(argv[i],"-threshold")) {
             _div_threshold = (double)atof(argv[i+1]);
@@ -1843,9 +1797,6 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-checkonly")) {
             _checkonly = true;
         }
-        if (!strcmp(argv[i],"-width")) {
-            _width = true;
-        }
         if (!strcmp(argv[i],"-precision_off")) {
             _improve_skeleton_quality = false;
         }
@@ -1853,41 +1804,36 @@ int main(int argc, char *argv[]) {
             _export_image_resampled = true;
         }
         if (!strcmp(argv[i],"-binary")) {
-            _binary_input = true;
+            mitoObject._binary_input = true;
         }
         if (!strcmp(argv[i],"-resample")) {
             _resample = atof(argv[i+1]);
         }
         if (!strcmp(argv[i],"-analyze")) {
-            _analyze = true;
+            mitoObject._analyze = true;
         }
     }
 
-    if (_dz<0) {
+    if (_dz < 0) {
+
         printf("Please, use -xy and -z to provide the pixel size.\n");
         return -1;
+
     }
 
-    _mitoObject mitoObject;
-
-    // Generating list of files to run
-    std::vector<std::string> Files;
+    std::vector<std::string> Files; // List of files to process
 
     if (_vtk_input) {
-        mitoObject.Type = "VTK";
-        ScanFolderForThisExtension(_impath,"-mitovolume.vtk",&Files);
+
+        ScanFolderForThisExtension(mitoObject.Folder,"-mitovolume.vtk",&Files);
+
     } else {
-        mitoObject.Type = "TIF";
-        ScanFolderForThisExtension(_impath,".tif",&Files);
+
+        ScanFolderForThisExtension(mitoObject.Folder,".tif",&Files);
+
     }    
 
-    std::string cmd;
-    double _dsigma = (_nsigma>1) ? (_sigmaf-_sigmai) / (_nsigma-1) : _sigmaf;
-    mitoObject._sigmai = _sigmai;
-    mitoObject._sigmaf = _sigmaf;
-    mitoObject._dsigma = _dsigma;
-    mitoObject._analyze = _analyze;
-    mitoObject._binary_input = _binary_input;
+    mitoObject._dsigma = (mitoObject._nsigma>1) ? (mitoObject._sigmaf-mitoObject._sigmai) / (mitoObject._nsigma-1) : mitoObject._sigmaf;
 
     for (int i = 0; i < Files.size(); i++) {
 
@@ -1902,10 +1848,11 @@ int main(int argc, char *argv[]) {
 
             MultiscaleVesselness(&mitoObject);
             DumpResults(mitoObject);
+            ExportConfigFile(mitoObject);
 
         }
 
-        if (_analyze) {
+        if ( mitoObject._analyze ) {
             RunGraphAnalysis(Files[i]);
         }
 

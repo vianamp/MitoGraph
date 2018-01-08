@@ -55,11 +55,21 @@
 	struct attribute { std::string name; double value; };
 
 	struct _mitoObject {
+	    std::string Type;
+	    std::string Folder;
+	    std::string FileName;
 		bool _analyze;
 		bool _binary_input;
-	    std::string Type, FileName;
-	    double Ox, Oy, Oz;
-	    double _sigmai, _sigmaf, _dsigma;
+	    double Ox;
+	    double Oy;
+	    double Oz;
+	    double _sigmai;
+	    double _sigmaf;
+	    double _dsigma;
+	    int _nsigma;
+		bool _adaptive_threshold;
+    	int _nblks;
+
 	    std::vector<attribute> attributes;
 	};
 
