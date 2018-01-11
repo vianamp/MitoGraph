@@ -266,29 +266,29 @@ void ExportNodes(vtkSmartPointer<vtkPolyData> PolyData, long int nnodes, long in
             Append -> AddInputData(Node->GetOutput());
             Append -> Update();
 
-            // if (_export_nodes_label) {
-            //     sprintf(node_txt,"%ld",ValidId[node]);
-            //     vtkSmartPointer<vtkVectorText> PolyText = vtkSmartPointer<vtkVectorText>::New();
-            //     PolyText -> SetText(node_txt);
-            //     PolyText -> Update();
+            if (_export_nodes_label) {
+                sprintf(node_txt,"%ld",ValidId[node]);
+                vtkSmartPointer<vtkVectorText> PolyText = vtkSmartPointer<vtkVectorText>::New();
+                PolyText -> SetText(node_txt);
+                PolyText -> Update();
 
-            //     vtkSmartPointer<vtkTransform> T = vtkSmartPointer<vtkTransform>::New();
-            //     if (_scale_polydata_before_save) {
-            //         T -> Translate(_dxy*(r[0]+1+mitoObject->Ox),_dxy*(r[1]+1+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
-            //         T -> Scale(2*_dxy,2*_dxy,1);
-            //     } else {
-            //         T -> Translate(r[0]+2+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
-            //         T -> Scale(2,2,1);
-            //     }
+                vtkSmartPointer<vtkTransform> T = vtkSmartPointer<vtkTransform>::New();
+                if (_scale_polydata_before_save) {
+                    T -> Translate(_dxy*(r[0]+1+mitoObject->Ox),_dxy*(r[1]+1+mitoObject->Oy),_dz*(r[2]+mitoObject->Oz));
+                    T -> Scale(2*_dxy,2*_dxy,1);
+                } else {
+                    T -> Translate(r[0]+2+mitoObject->Ox,r[1]+mitoObject->Oy,r[2]+mitoObject->Oz);
+                    T -> Scale(2,2,1);
+                }
 
-            //     vtkSmartPointer<vtkTransformPolyDataFilter> Trans = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
-            //     Trans -> SetInputData(PolyText->GetOutput());
-            //     Trans -> SetTransform(T);
-            //     Trans -> Update();
+                vtkSmartPointer<vtkTransformPolyDataFilter> Trans = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+                Trans -> SetInputData(PolyText->GetOutput());
+                Trans -> SetTransform(T);
+                Trans -> Update();
 
-            //     Append -> AddInputData(Trans -> GetOutput());
-            //     Append -> Update();
-            // }
+                Append -> AddInputData(Trans -> GetOutput());
+                Append -> Update();
+            }
         }
 
     }
@@ -1007,7 +1007,7 @@ vtkSmartPointer<vtkPolyData> Skeletonization(vtkSmartPointer<vtkImageData> Image
 
     if (_export_graph_files) ExportGraphFiles(PolyData,NumberOfNodes,ValidId,mitoObject->FileName.c_str());
 
-    //ExportNodes(PolyData,NumberOfNodes,ValidId,mitoObject);
+    ExportNodes(PolyData,NumberOfNodes,ValidId,mitoObject);
 
     return PolyData;
 }
