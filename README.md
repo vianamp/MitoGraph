@@ -22,21 +22,19 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Please follow the steps bellow to install MitoGraph.
 
-1. Download the file that suits your operating system.
+1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the last version of MitoGraph available for Mac OSX 10.12 or higehr.</a>
 
-2. Create a new folder called MitoGraph on your Desktop.
+2. Move the downloaded file to a new folder and unzip it.
 
-3. Move the downloaded file to the folder you just created and rename the file to MitoGraph.
+3. Open the terminal in your Mac OS (spotlight + terminal).
 
-4. Open the terminal in your Mac OS (spotlight + terminal)
-
-5. Type the following command (make sure that you are typing the space and upper cases correctly) and press return.
+4. Type the following command (make sure that you are typing the space and upper cases correctly) and press return.
 
 `cd ~/Desktop/MitoGraph`
 
 PS: if any error message is displayed, please check the spelling of the directory that you have created.
 
-6. Type the following command.
+5. Type the following command.
 
 `chmod +xxx MitoGraph`
 
