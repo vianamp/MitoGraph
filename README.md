@@ -74,7 +74,7 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 **Single files:**
 
-* __mitograph.config__ - Stores the parameters used to run MitoGraph and the data and time when the analysis was complete.
+* __mitograph.config__ - Stores the parameters used to run MitoGraph and the date and time when the analysis was complete.
 
 **Text files that can be open in any Text Editor (one file per sample):**
 
