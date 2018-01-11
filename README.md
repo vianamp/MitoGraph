@@ -12,9 +12,9 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 ✓ Support binary and VTK input
 
-✓ Saves skeleton withh information of mitochondrial tubule width and pixel intensity
+✓ Exports skeleton coordinates as text file
 
-✓ Exports skeleton coordinates
+✓ Saves skeleton with information of mitochondrial tubule width, pixel intensity, edge length and nodes position
 
 ---
 
@@ -90,7 +90,7 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 **VTK files that can be open using Paraview [3] (one file per sample):**
 
 * __filename_Nodes.vtk__ - Nodes of of the graph that represents the mitochondria and their labels.
-* __filename_skeleton.vtk__ - Mitochondrial skeleton.
+* __filename_skeleton.vtk__ - Mitochondrial skeleton. This file contains information about mitochondrial tubule width, pixel intensity, edge length and nodes position that can be viewd in Paraview by seting the coloring mode.
 * __filename_mitosurface.vtk__ - Mitochondrial surface.
 
 ---
