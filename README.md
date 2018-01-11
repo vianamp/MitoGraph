@@ -14,7 +14,7 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 ✓ Exports skeleton coordinates as text file
 
-✓ Saves skeleton with information of mitochondrial tubule width, pixel intensity, edge length and nodes position
+✓ Saves skeleton with information of mitochondrial tubules width, pixel intensity, edge length and nodes position
 
 ---
 
@@ -22,7 +22,7 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Please follow the steps bellow to install MitoGraph.
 
-1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the last version of MitoGraph available for Mac OSX 10.12 or higehr.</a>
+1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the last version of MitoGraph available for Mac OSX 10.12 or later.</a>
 
 2. Move the downloaded file to a new folder and unzip it.
 
