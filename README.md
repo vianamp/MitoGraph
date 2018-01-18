@@ -14,6 +14,8 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 ✓ Support binary and VTK input
 
+✓ Support 2D image data
+
 ✓ Export skeleton coordinates as text file
 
 ✓ Save skeleton with information of mitochondrial tubules width, pixel intensity, edge length and nodes position
