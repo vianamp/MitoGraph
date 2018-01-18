@@ -26,7 +26,7 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Please follow the steps bellow to install MitoGraph.
 
-1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the last version of MitoGraph available for Mac OSX 10.12 or later.</a>
+1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the latest version of MitoGraph available for Mac OSX 10.12 or later.</a>
 
 2. Move the downloaded file to a new folder and unzip it.
 
