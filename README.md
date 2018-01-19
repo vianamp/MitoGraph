@@ -85,7 +85,7 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 ### Test Data
 
-MitoGraph expects 8bit or 16bit TIFF z-stacks (or __VTK Imagedata__ type using the flag `-vtk`) as input to perform the analysis. To test MitoGraph, __please click in the image below to download an example dataset__.
+MitoGraph expects 8bit or 16bit TIFF z-stacks (or __VTK Imagedata__ type using the flag `-vtk`) as input to perform the analysis. To test MitoGraph, <a href="https://sites.google.com/site/vianamp/examples.zip?attredirects=0&d=1">please click in the image below to download an example dataset</a>.
 
 <p align="center">
   <a href="https://sites.google.com/site/vianamp/examples.zip?attredirects=0&d=1">
