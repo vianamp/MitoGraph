@@ -26,29 +26,15 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Please follow the steps bellow to install MitoGraph.
 
-1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the latest version of MitoGraph available for Mac OSX 10.12 or later.</a>
+1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the latest version of MitoGraph available for Mac OSX 10.10 or later.</a>
 
 2. Move the downloaded file to a new folder and unzip it.
-
-3. Open the terminal in your Mac OS (spotlight + terminal).
-
-4. Type the following command (make sure that you are typing the space and upper cases correctly) and press return.
-
-`cd ~/Desktop/MitoGraph`
-
-PS: if any error message is displayed, please check the spelling of the directory that you have created.
-
-5. Type the following command.
-
-`chmod +xxx MitoGraph`
-
-PS: if no error message is displayed it means that MitoGraph is ready to run.
 
 ---
 
 ### How to Run MitoGraph
 
-Type the following command in the terminal.
+Type the following command in the terminal of your Mac OS (spotlight + terminal)
 
 `./MitoGraph -xy 0.056 -z 0.2 -path ~/Desktop/examples`
 
@@ -99,7 +85,7 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 ### Test Data
 
-MitoGraph expects 8bit or 16bit TIFF z-stacks (or __VTK Imagedata__ type using the flag `-vtk`) as input to perform the analysis. To test MitoGraph, please click in the image below to download an example dataset.
+MitoGraph expects 8bit or 16bit TIFF z-stacks (or __VTK Imagedata__ type using the flag `-vtk`) as input to perform the analysis. To test MitoGraph, __please click in the image below to download an example dataset__.
 
 <p align="center">
   <a href="https://sites.google.com/site/vianamp/examples.zip?attredirects=0&d=1">
