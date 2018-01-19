@@ -89,7 +89,7 @@ MitoGraph expects 8bit or 16bit TIFF z-stacks (or __VTK Imagedata__ type using t
 
 <p align="center">
   <a href="https://sites.google.com/site/vianamp/examples.zip?attredirects=0&d=1">
-  <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/examples.png" width="auto" height="128" title="Example Dataset"></a>
+  <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset"></a>
 </p>
 
 ---
