@@ -35,7 +35,7 @@
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
 
-    std::string MITOGRAPH_VERSION = "V3.0";
+    std::string MITOGRAPH_VERSION = "v3.0";
 
     //                    |------06------|
     //                    |------------------------18------------------------|
@@ -1411,7 +1411,7 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
                 Image = Resample -> GetOutput();
 
-                _dz = _resample;
+                _dz = _dxy;
             
             } else {
 
@@ -1835,6 +1835,9 @@ int main(int argc, char *argv[]) {
 
     mitoObject._dsigma = (mitoObject._nsigma>1) ? (mitoObject._sigmaf-mitoObject._sigmai) / (mitoObject._nsigma-1) : mitoObject._sigmaf;
 
+    printf("[Starting MitoGraph %s]\n",MITOGRAPH_VERSION.c_str());
+    printf("%d files found. MitoGraph is running...\n",(int)Files.size());
+
     for (int i = 0; i < Files.size(); i++) {
 
         mitoObject.attributes.clear();
@@ -1857,6 +1860,8 @@ int main(int argc, char *argv[]) {
         }
 
     }
+
+    printf("Process complete. Exiting MitoGraph...\n");
 
     return 0;
 }
