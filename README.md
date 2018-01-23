@@ -46,9 +46,7 @@ Please follow the steps bellow to install MitoGraph.
 
 ### How to Run MitoGraph
 
-Download the test dataset available in <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraphTools</a> and unzip the file in your Desktop.
-
-Type the following command in the terminal of your Mac OS (spotlight + terminal)
+Download the <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">test dataset</a> mentioned in the previous section and unzip the downloaded file in your Desktop. Type the following command in the terminal of your Mac OS (spotlight + terminal)
 
 `cd ~/Desktop/MitoGraph`
 
