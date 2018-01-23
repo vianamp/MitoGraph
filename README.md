@@ -83,18 +83,11 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 ---
 
-### Test Data
-
-MitoGraph expects 8bit or 16bit TIFF z-stacks (or __VTK Imagedata__ type using the flag `-vtk`) as input to perform the analysis. To test MitoGraph, <a href="https://sites.google.com/site/vianamp/examples.zip?attredirects=0&d=1">please click in the image below to download an example dataset</a>.
+### Testing Data, ImageJ Macros and Other Tools
 
 <p align="center">
-  <a href="https://sites.google.com/site/vianamp/examples.zip?attredirects=0&d=1">
-  <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset"></a>
+  <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset">
 </p>
-
----
-
-### MitoGraph Tools
 
 * <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraph Tools</a>: in this repository you will find an example dataset to test MitoGraph on. There is also two ImageJ scripts that help you to prepare your data to make them similar to out test dataset.
 
