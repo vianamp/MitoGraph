@@ -34,6 +34,16 @@ Please follow the steps bellow to install MitoGraph.
 
 ---
 
+### Testing Data, ImageJ Macros and Other Tools
+
+<p align="center">
+  <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset">
+</p>
+
+* <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraph Tools</a>: in this repository you will find an example dataset to test MitoGraph on. There is also two ImageJ scripts that help you to prepare your data to make them similar to out test dataset.
+
+---
+
 ### How to Run MitoGraph
 
 Download the test dataset available in <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraphTools</a> and unzip the file in your Desktop.
@@ -86,16 +96,6 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 * __filename_Nodes.vtk__ - Nodes of the graph that represents the mitochondria and their labels.
 * __filename_skeleton.vtk__ - Mitochondrial skeleton. This file contains information about mitochondrial tubule width, pixel intensity, edge length and nodes position that can be viewd in Paraview by setting the coloring mode.
 * __filename_mitosurface.vtk__ - Mitochondrial surface.
-
----
-
-### Testing Data, ImageJ Macros and Other Tools
-
-<p align="center">
-  <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset">
-</p>
-
-* <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraph Tools</a>: in this repository you will find an example dataset to test MitoGraph on. There is also two ImageJ scripts that help you to prepare your data to make them similar to out test dataset.
 
 ---
 
