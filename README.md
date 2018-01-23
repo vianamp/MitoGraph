@@ -52,7 +52,7 @@ Download the <a href="https://github.com/vianamp/MitoGraphTools/blob/master/READ
 
 `./MitoGraph -xy 0.056 -z 0.2 -path ~/Desktop/MitoGraphTools-1.0`
 
-PS: The flag -xy specifies the pixel size in microns and the flag -z specifies the z-spacing also in microns of your images. Finally, the flag -path indicates the folder that contains the images you want to analyze.
+The flag -xy specifies the pixel size in microns and the flag -z specifies the z-spacing also in microns of your images. Finally, the flag -path indicates the folder that contains the images you want to analyze.
 
 #### Optional Flags
 
