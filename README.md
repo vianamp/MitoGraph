@@ -6,7 +6,7 @@
 
 MitoGraph is a fully automated image processing method and software dedicated to calculating the three-dimensional morphology of mitochondria in live cells. MitoGraph is currently optimized and validated only for quantifying the volume and topology of tubular mitochondrial networks in budding yeast [1,2]. However, MitoGraph can also be applied to mitochondria in other cell types and possibly other intracellular (or tissue) structures, with proper validation. MitoGraph is continuously being updated. Please contact us if you have questions that go beyond those discussed in [1,2] or any request that would make MitoGraph a better tool for your research.
 
-2018.01.08, Matheus Viana.
+Matheus Viana - vianamp@gmail.com - 01.19.2018
 
 ### V3.0 Release
 
