@@ -36,6 +36,8 @@ Please follow the steps bellow to install MitoGraph.
 
 ### Testing Data, ImageJ Macros and Other Tools
 
+Before running MitoGraph on your own dataset, you may want check the tools we made available for preparing your data andour test datasets.
+
 <p align="center">
   <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset">
 </p>
