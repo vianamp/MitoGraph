@@ -36,11 +36,13 @@ Please follow the steps bellow to install MitoGraph.
 
 ### How to Run MitoGraph
 
-Use the test dataset available in <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraphTools</a> to test MitoGraph. Type the following command in the terminal of your Mac OS (spotlight + terminal)
+Download the test dataset available in <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraphTools</a> and unzip the file in your Desktop.
+
+Type the following command in the terminal of your Mac OS (spotlight + terminal)
 
 `cd ~/Desktop/MitoGraph`
 
-`./MitoGraph -xy 0.056 -z 0.2 -path ~/Desktop/MitoGraphTools`
+`./MitoGraph -xy 0.056 -z 0.2 -path ~/Desktop/MitoGraphTools-1.0`
 
 PS: The flag -xy specifies the pixel size in microns and the flag -z specifies the z-spacing also in microns of your images. Finally, the flag -path indicates the folder that contains the images you want to analyze.
 
