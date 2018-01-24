@@ -24,7 +24,7 @@ Matheus Viana - vianamp@gmail.com - 01.19.2018
 
 Please follow the steps bellow to install MitoGraph.
 
-1. <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">Download the latest version of MitoGraph available for Mac OSX 10.10 or later</a>
+1. <a href="https://github.com/vianamp/MitoGraph/releases/download/v3.0/MitoGraph-OSX-10.12.zip">Download the latest version of MitoGraph available for Mac OSX 10.10 or later</a>
 
 2. Create a folder in your Desktop and name it MitoGraph
 
