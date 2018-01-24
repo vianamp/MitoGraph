@@ -40,7 +40,7 @@ Before running MitoGraph on your own dataset, you may want to check the tools we
   <img src="https://sites.google.com/site/vianamp/_/rsrc/1418664353567/mitograph/mitoexamples.png" width="auto" height="128" title="Example Dataset">
 </p>
 
-* <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraph Tools</a>: in this repository you will find an example dataset to test MitoGraph on. There is also two ImageJ scripts that help you to prepare your data to make them similar to out test dataset.
+* <a href="https://github.com/vianamp/MitoGraphTools/blob/master/README.md">MitoGraph Tools</a>: in this repository you will find an example dataset to test MitoGraph on. There is also two ImageJ scripts that help you to prepare your data to make them similar to our test dataset.
 
 ---
 
