@@ -66,7 +66,7 @@ The flag `-xy` specifies the pixel size in microns and the flag `-z` specifies t
 
 `-vtk`: indicates that the input data is of __VTK Imagedata__ type instead of TIFF.
 
-`-labels_off`: turns off the labels of nodes in the output file __filename_nodes.vtk___.
+`-labels_off`: turns off the labels of nodes in the output file __filename_nodes.vtk__.
 
 ---
 
