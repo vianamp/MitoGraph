@@ -35,7 +35,7 @@
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
 
-    std::string MITOGRAPH_VERSION = "v3.0";
+    std::string MITOGRAPH_VERSION = "v2.1";
 
     //                    |------06------|
     //                    |------------------------18------------------------|
@@ -1654,10 +1654,15 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
     }
 
+    ScalePolyData(Skeleton,mitoObject);
+
+    //SAVING SKELETON
+    //---------------
+
+    SavePolyData(Skeleton,(mitoObject->FileName+"_skeleton.vtk").c_str());
+
     //TUBULES WIDTH
     //-------------
-
-    ScalePolyData(Skeleton,mitoObject);
 
     EstimateTubuleWidth(Skeleton,Surface,mitoObject);
 
@@ -1683,35 +1688,31 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
     }
 
+
     // Shifting the Stack to (0,0,0)
     ImageData -> SetOrigin(0,0,0);
 
     MapImageIntensity(Skeleton,ImageData,6);
 
-    vtkDataArray *W = Skeleton -> GetPointData() -> GetArray("Width");
-    vtkDataArray *I = Skeleton -> GetPointData() -> GetArray("Intensity");
+    // vtkDataArray *W = Skeleton -> GetPointData() -> GetArray("Width");
+    // vtkDataArray *I = Skeleton -> GetPointData() -> GetArray("Intensity");
 
-    vtkIdType p;
-    double r[3];
-    FILE *fw = fopen((mitoObject->FileName+".txt").c_str(),"w");
-    fprintf(fw,"line_id\tpoint_id\tx\ty\tz\twidth_(um)\tpixel_intensity\n");
-    for (vtkIdType edge = 0; edge < Skeleton -> GetNumberOfCells(); edge++) {
-        for (vtkIdType id = 0; id < Skeleton -> GetCell(edge) -> GetNumberOfPoints(); id++) {
-            p = Skeleton -> GetCell(edge) -> GetPointId(id);
-            Skeleton -> GetPoint(p,r);
-            fprintf(fw,"%d\t%d\t%1.5f\t%1.5f\t%1.5f\t%1.5f\t%1.5f\n",(int)edge,(int)id,r[0],r[1],r[2],W->GetTuple1(p),I->GetTuple1(p));
-        }
-    }
-    fclose(fw);
+    // vtkIdType p;
+    // double r[3];
+    // FILE *fw = fopen((mitoObject->FileName+".txt").c_str(),"w");
+    // fprintf(fw,"line_id\tpoint_id\tx\ty\tz\twidth_(um)\tpixel_intensity\n");
+    // for (vtkIdType edge = 0; edge < Skeleton -> GetNumberOfCells(); edge++) {
+    //     for (vtkIdType id = 0; id < Skeleton -> GetCell(edge) -> GetNumberOfPoints(); id++) {
+    //         p = Skeleton -> GetCell(edge) -> GetPointId(id);
+    //         Skeleton -> GetPoint(p,r);
+    //         fprintf(fw,"%d\t%d\t%1.5f\t%1.5f\t%1.5f\t%1.5f\t%1.5f\n",(int)edge,(int)id,r[0],r[1],r[2],W->GetTuple1(p),I->GetTuple1(p));
+    //     }
+    // }
+    // fclose(fw);
 
     GetVolumeFromSkeletonLengthAndWidth(Skeleton,mitoObject); //Validation needed
 
     //GetTopologicalAttributes(Skeleton,mitoObject);
-
-    //SAVING SKELETON
-    //---------------
-
-    SavePolyData(Skeleton,(mitoObject->FileName+"_skeleton.vtk").c_str());
 
     return 0;
 }
@@ -1726,7 +1727,7 @@ void RunGraphAnalysis(std::string FileName) {
     //-------------------------------
 
     std::string cmd;
-    cmd = "Rscript --vanilla GraphAnalyzer.R " + FileName;
+    cmd = "/usr/local/bin/Rscript --vanilla GraphAnalyzer.R " + FileName;
     system(cmd.c_str());
 
 }
@@ -1755,10 +1756,10 @@ int main(int argc, char *argv[]) {
 
     // Collecting input parameters
     for (i = 0; i < argc; i++) {
-        if (!strcmp(argv[i],"-vtk")) {
-            _vtk_input = true;
-            mitoObject.Type = "VTK";
-        }
+        // if (!strcmp(argv[i],"-vtk")) {
+        //     _vtk_input = true;
+        //     mitoObject.Type = "VTK";
+        // }
         if (!strcmp(argv[i],"-path")) {
             mitoObject.Folder = argv[i+1];
             mitoObject.Folder += "/";
@@ -1800,15 +1801,15 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-precision_off")) {
             _improve_skeleton_quality = false;
         }
-        if (!strcmp(argv[i],"-export_image_resampled")) {
-            _export_image_resampled = true;
-        }
-        if (!strcmp(argv[i],"-binary")) {
-            mitoObject._binary_input = true;
-        }
-        if (!strcmp(argv[i],"-resample")) {
-            _resample = atof(argv[i+1]);
-        }
+        // if (!strcmp(argv[i],"-export_image_resampled")) {
+        //     _export_image_resampled = true;
+        // }
+        // if (!strcmp(argv[i],"-binary")) {
+        //     mitoObject._binary_input = true;
+        // }
+        // if (!strcmp(argv[i],"-resample")) {
+        //     _resample = atof(argv[i+1]);
+        // }
         if (!strcmp(argv[i],"-analyze")) {
             mitoObject._analyze = true;
         }
