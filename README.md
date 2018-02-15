@@ -6,7 +6,7 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Matheus Viana - vianamp@gmail.com - 01.19.2018
 
-### V3.0 Release
+### v3.0 Release
 
 ✓ Adaptive threshold
 
@@ -17,6 +17,10 @@ Matheus Viana - vianamp@gmail.com - 01.19.2018
 ✓ Export skeleton coordinates as text file
 
 ✓ Save skeleton with information of mitochondrial tubules width, pixel intensity, edge length and nodes position
+
+### v2.1 Release
+
+✓ Extra flag that lets you use __R__ to perform basic analysis of MitoGraph output
 
 ---
 
@@ -68,6 +72,8 @@ The flag `-xy` specifies the pixel size in microns and the flag `-z` specifies t
 
 `-labels_off`: turns off the labels of nodes in the output file __filename_nodes.vtk__.
 
+`-analyze`: uses R to do a per connected component analysis of MitoGraph output. This flag requires __R__ and its package __igraph__ to be installed in your system.
+
 ---
 
 ### MitoGraph Outputs
@@ -82,8 +88,9 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 * __filename.gnet__ - Connection list of type `node_i` `node_j` of the graph that represents the mitochondria. First line of this file gives the total number of nodes.
 * __filename.coo__ - Coordinates xyz of nodes in the graph.
-* __filename.mitograph__ - Mitochondrial attributes: volume from voxels, average width (µm), std width (µm),  total length (µm) and volume from length (µm3).
+* __filename.mitograph__ - Mitochondrial attributes: volume from voxels, average width (µm), std width (µm),  total length (µm) and volume from length (µm3). This file also shows per component statistics when the flag `-analyze` is used.
 * __filename.txt__ - Coordinates of all the points along the mitochondrial skeleton as well as the local width (µm) and original pixel intensity.
+* __filename.cc__ - Connected component which each node belong to and the component volume (µm3). Only when the flag `-analyze` is used.
 
 **Image files (one file per sample):**
 
