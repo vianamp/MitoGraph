@@ -6,7 +6,7 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Matheus Viana - vianamp@gmail.com - 01.19.2018
 
-### v3.0 Release
+### <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">v3.0 Release</a>
 
 ✓ Adaptive threshold
 
@@ -18,7 +18,7 @@ Matheus Viana - vianamp@gmail.com - 01.19.2018
 
 ✓ Save skeleton with information of mitochondrial tubules width, pixel intensity, edge length and nodes position
 
-### v2.1 Release
+### <a href="https://github.com/vianamp/MitoGraph/releases/tag/v2.1">v2.1 Release</a>
 
 ✓ Extra flag that lets you use __R__ to perform basic analysis of MitoGraph output
 
