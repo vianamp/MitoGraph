@@ -524,8 +524,6 @@ void DumpResults(const _mitoObject mitoObject) {
     fprintf(findv,"\n");
     fclose(findv);
 
-    fprintf(findv,"\n");
-
     // Also printing on the screen
     printf("%s\t[done]\n",mitoObject.FileName.c_str());
 
