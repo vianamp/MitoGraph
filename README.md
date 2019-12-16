@@ -66,7 +66,7 @@ The flag `-xy` specifies the pixel size in microns and the flag `-z` specifies t
 
 `-adaptive a` where a is a numeric integer value specifying that the input image should be split into a x a blocks before the segmentation. This is useful for images with high variablity of pixel intensity.
 
-`-binary`: indicates that the input is a binary image. 
+`-binary`: indicates that the input is a binary image.
 
 `-vtk`: indicates that the input data is of __VTK Imagedata__ type instead of TIFF.
 
@@ -101,6 +101,36 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 * __filename_Nodes.vtk__ - Nodes of the graph that represents the mitochondria and their labels.
 * __filename_skeleton.vtk__ - Mitochondrial skeleton. This file contains information about mitochondrial tubule width, pixel intensity, edge length and nodes position that can be viewd in Paraview by setting the coloring mode.
 * __filename_mitosurface.vtk__ - Mitochondrial surface.
+
+### Building MitoGraph from Source
+#### Windows
+:construction: TODO :construction:
+
+#### MacOS/Linux
+1. Install [CMake](https://cmake.org/download/) and the [VTK 7+](https://vtk.org/download/) if they are not already present on your system. Most Linux distributions will have the packages available from their repositories or you can download a suitable binary from the download pages linked to.
+
+2. Clone the repository with git.
+<code>
+cd ~/my-git-folder
+git clone <paste repository link>
+cd MitoGraph
+</code>
+
+3.  Create a build directory
+<code>
+mkdir builds
+cd builds
+</code>
+
+4. Generate the build files with CMake.
+<code>
+cmake ../
+</code>
+
+5. Build the executables with make.
+<code>
+make
+</code>
 
 ---
 
