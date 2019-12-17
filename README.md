@@ -102,6 +102,8 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 * __filename_skeleton.vtk__ - Mitochondrial skeleton. This file contains information about mitochondrial tubule width, pixel intensity, edge length and nodes position that can be viewd in Paraview by setting the coloring mode.
 * __filename_mitosurface.vtk__ - Mitochondrial surface.
 
+---
+
 ### Building MitoGraph from Source
 #### Windows
 :construction: TODO :construction:
