@@ -4,12 +4,12 @@ PROJECT(MitoGraph)
 
 # Ensure VTK is present
 FIND_PACKAGE(VTK)
-if (NOT VTK_FOUND)
-  message (STATUS "VTK was not found!")
-  return()
-else()
+if(VTK_FOUND)
   message (STATUS "VTK Version Found: ${VTK_VERSION}")
   INCLUDE(${VTK_USE_FILE})
+else()
+  message (STATUS "VTK was not found!")
+  return()
 endif()
 
 # Specify the executables to produce
