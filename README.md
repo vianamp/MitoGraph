@@ -106,31 +106,27 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 #### Windows
 :construction: TODO :construction:
 
-#### MacOS/Linux
-1. Install [CMake](https://cmake.org/download/) and [VTK 7+](https://vtk.org/download/) if they are not already present on your system.\*
+___Temporary Solution___: _Windows users can install a linux based OS in a virtual machine to build and use the program from there._
+
+#### MacOS
+:construction: TODO :construction:
+
+#### Linux
+1. Install [CMake](https://cmake.org/download/) and [VTK 7+](https://vtk.org/download/) if they are not already present on your system. For Debian/Ubuntu based systems, these can be obtained using the following command:</br>
+<code> sudo apt install cmake vtklib7-dev </code>
 
 2. Download the repository from GitHub and unzip the folder.
 
-3. Create a build directory in the unzipped MitoGraph directory either using your file browser or from terminal.
-<code>
-mkdir build && cd build
-</code>
+3. Create a build directory in the unzipped MitoGraph directory as follows (assuming you have navigated into the MitoGraph directory):</br>
+<code>mkdir build && cd build</code>
 
-4. If you do not have a terminal open yet, open one and use the _ls_ and _cd_ commands to navigate into the build directory. If you are unsure how to use ls and cd, consult an online tutorial or their manuals (_man cd_ or _man ls_ will display the manual in the terminal).
+5. Generate the build files with CMake with the following command:</br>
+<code>cmake -DCMAKE_BUILD_TYPE=Release ../</code>
 
-5. Generate the build files with CMake with the following command.
-<code>
-cmake -DCMAKE_BUILD_TYPE=Release ../
-</code>
+5. Build the executables with make with the following command.</br>
+<code>make</code>
 
-5. Build the executables with make with the following command.
-<code>
-make
-</code>
-
-6. Now when you list the files (ls), you should see the MitoGraph executable. You can add this build folder to your PATH variable if you like and then execute the program from anywhere.
-
-\*_Most Linux distributions will have the packages available from their repositories ("cmake" and "libvtk7-dev" for Ubuntu and Debian derivatives) or you can download a suitable binary from the download pages linked to._
+6. Now when you list the files (ls), you should see the MitoGraph executable. You can add this build folder to your PATH variable if you want to and then execute the program from anywhere.
 
 ---
 
