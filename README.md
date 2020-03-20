@@ -114,6 +114,6 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 [1] - Matheus P Viana, Swee Lim, Susanne M Rafelski, Quantifying Mitochondrial Content in Living Cells (2015), Biophysical Methods in Cell Biology, (125) - 77-93 (http://www.sciencedirect.com/science/article/pii/S0091679X14000041)
 
-[2] - Under revision.
+[2] - Viana, M.P., Brown, A.I., Mueller, I.A., Goul, C., Koslover, E.F. and Rafelski, S.M., 2020. Mitochondrial Fission and Fusion Dynamics Generate Efficient, Robust, and Evenly Distributed Network Topologies in Budding Yeast Cells. Cell Systems (https://www.cell.com/cell-systems/fulltext/S2405-4712(20)30035-1)
 
 [3] - https://www.paraview.org/
