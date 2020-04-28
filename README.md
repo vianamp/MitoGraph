@@ -106,10 +106,9 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 
 ### Building MitoGraph from Source
 #### Windows
-:construction: TODO :construction:
 
+___Linux Virtual Machine___: _Windows users can install a linux based OS in a virtual machine to build and use the program from there._
 
-___Temporary Solution___: _Windows users can install a linux based OS in a virtual machine to build and use the program from there._
 ___Running MitoGraph on a Windows Subsystem for Linux___:
 
 1. If you don't have Windows subsystem for Linux enabled then Open the Windows Control Panel, then go to Progams -> Turn Windows futures on or off, and check "Windows Subsystem for Linux" and then click ok. Your computer will have to restart after this.
