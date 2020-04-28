@@ -113,7 +113,7 @@ ___Running MitoGraph on a Windows Subsystem for Linux___:
 
 1. If you don't have Windows subsystem for Linux enabled then Open the Windows Control Panel, then go to Progams -> Turn Windows futures on or off, and check "Windows Subsystem for Linux" and then click ok. Your computer will have to restart after this.
 
-2. If you don't have a Linux distribution installed already, you can install one through the Microsoft Store. Many can be found searching "Linux" but in this example we'll assume that Ubuntu is being used.
+2. If you don't have a Linux distribution installed already, you can install one through the Microsoft Store. Many can be found searching "Linux" but we'll assume that Ubuntu is being used.
 
 3. Once you have opened and set up Ubuntu, update and upgrade it: </br>
 <code> sudo apt update </code> </br>
