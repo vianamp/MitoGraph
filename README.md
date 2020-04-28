@@ -108,14 +108,35 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 #### Windows
 :construction: TODO :construction:
 
+
 ___Temporary Solution___: _Windows users can install a linux based OS in a virtual machine to build and use the program from there._
+___Running MitoGraph on a Windows Subsystem for Linux___:
+
+1. If you don't have Windows subsystem for Linux enabled then Open the Windows Control Panel, then go to Progams -> Turn Windows futures on or off, and check "Windows Subsystem for Linux" and then click ok. Your computer will have to restart after this.
+
+2. If you don't have a Linux distribution installed already, you can install one through the Microsoft Store. Many can be found searching "Linux" but in this example we'll assume that Ubuntu is being used.
+
+3. Once you have opened and set up Ubuntu, update and upgrade it:
+<code> sudo apt update </code>
+<code> sudo apt upgrade </code>
+
+4. Specify the preferred C compiler that cmake should use:
+<code> export CC=/usr/bin/gcc </code>
+
+5. Follow the rest of the instructions under "___Linux___" in this document
+
+__NOTE__: You can access your files in your Windows system in the /mnt/ directory
+If you have a C: drive:
+<code> cd /mnt/c
+If you have a D: drive
+<code> cd /mnt/d
 
 #### MacOS
 :construction: TODO :construction:
 
 #### Linux
 1. Install [CMake](https://cmake.org/download/) and [VTK 7+](https://vtk.org/download/) if they are not already present on your system. For Debian/Ubuntu based systems, these can be obtained using the following command:</br>
-<code> sudo apt install cmake vtklib7-dev </code>
+<code> sudo apt install cmake libvtk7-dev </code>
 
 2. Download the repository from GitHub and unzip the folder.
 
