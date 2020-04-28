@@ -127,9 +127,9 @@ ___Running MitoGraph on a Windows Subsystem for Linux___:
 
 __NOTE__: You can access your files in your Windows system in the /mnt/ directory
 If you have a C: drive:
-<code> cd /mnt/c
+<code> cd /mnt/c </code>
 If you have a D: drive
-<code> cd /mnt/d
+<code> cd /mnt/d </code>
 
 #### MacOS
 :construction: TODO :construction:
