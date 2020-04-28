@@ -116,9 +116,9 @@ ___Running MitoGraph on a Windows Subsystem for Linux___:
 
 2. If you don't have a Linux distribution installed already, you can install one through the Microsoft Store. Many can be found searching "Linux" but in this example we'll assume that Ubuntu is being used.
 
-3. Once you have opened and set up Ubuntu, update and upgrade it:
-<code> sudo apt update </code>
-<code> sudo apt upgrade </code>
+3. Once you have opened and set up Ubuntu, update and upgrade it: </br>
+<code> sudo apt update </code> </br>
+<code> sudo apt upgrade </code> 
 
 4. Specify the preferred C compiler that cmake should use:
 <code> export CC=/usr/bin/gcc </code>
