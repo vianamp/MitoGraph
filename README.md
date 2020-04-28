@@ -105,17 +105,9 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 ---
 
 ### Building MitoGraph from Source
-#### Windows
-:construction: TODO :construction:
-
-___Temporary Solution___: _Windows users can install a linux based OS in a virtual machine to build and use the program from there._
-
-#### MacOS
-:construction: TODO :construction:
-
 #### Linux
 1. Install [CMake](https://cmake.org/download/) and [VTK 7+](https://vtk.org/download/) if they are not already present on your system. For Debian/Ubuntu based systems, these can be obtained using the following command:</br>
-<code> sudo apt install cmake vtklib7-dev </code>
+<code> sudo apt install cmake libvtk7-dev </code>
 
 2. Download the repository from GitHub and unzip the folder.
 
