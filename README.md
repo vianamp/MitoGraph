@@ -130,9 +130,6 @@ ___Running MitoGraph on a Windows Subsystem for Linux___:
     If you have a D: drive </br>
     <code> cd /mnt/d </code>
 
-#### MacOS
-:construction: TODO :construction:
-
 #### Linux
 1. Install [CMake](https://cmake.org/download/) and [VTK 7+](https://vtk.org/download/) if they are not already present on your system. For Debian/Ubuntu based systems, these can be obtained using the following command:</br>
 <code> sudo apt install cmake libvtk7-dev </code>
