@@ -1304,9 +1304,9 @@ void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject
         ne += (k==1) ? 1 : 0;
         nb += (k>=3) ? 1 : 0;
     }
-    attribute newAtt_1 = {"#End points",ne};
+    attribute newAtt_1 = {"#End points",static_cast<double>(ne)};
     mitoObject -> attributes.push_back(newAtt_1);
-    attribute newAtt_2 = {"#Bifurcations",nb};
+    attribute newAtt_2 = {"#Bifurcations",static_cast<double>(nb)};
     mitoObject -> attributes.push_back(newAtt_2);
     // NUMBER OF CONNECTED COMPONENTS
     vtkSmartPointer<vtkPolyDataConnectivityFilter> CC = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
