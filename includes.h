@@ -4,7 +4,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#ifdef _WIN32
+#include "includes/dirent.h"
+#else
 #include <dirent.h>
+#endif
 
 #include <vtkMath.h>
 #include <vtkImageFlip.h>
