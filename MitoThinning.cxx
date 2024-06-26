@@ -1088,12 +1088,12 @@ bool MergeEdgesOfDegree2Nodes(vtkSmartPointer<vtkPolyData> PolyData, long int ne
             PolyData -> DeleteCell(neigh_edge);
             PolyData -> RemoveDeletedCells();
             // Adding the new "merged" edge
-            vtkIdType IdList[Merg.size()];
+            std::vector<vtkIdType> IdList(Merg.size());
             for (itId=Merg.begin(); itId!=Merg.end(); itId++) {
                 IdList[i] = *itId;
                 i++;
             }
-            PolyData -> InsertNextCell(VTK_POLY_LINE,Merg.size(),IdList);
+            PolyData -> InsertNextCell(VTK_POLY_LINE,Merg.size(),IdList.data());
             Merg.clear();
             return true;
         }

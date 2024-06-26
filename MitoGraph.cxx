@@ -1,17 +1,14 @@
 // ==================================================================
 // MitoGraph: Quantifying Mitochondrial Content in Living Cells
 // Written by Matheus P. Viana - vianamp@gmail.com - 2018.01.08
-//
+// Last update: 2024.06.20
+// 
 // Susanne Rafelski Lab, University of California Irvine
 //
-// The official documentation will be soon available at
+// The official documentation can be found at
 //
 //      The official software website
 //      - https://github.com/vianamp/MitoGraph
-//
-//      or
-//
-//      - http://www.rafelski.com/susanne/Home.html
 //
 // A protocol paper describing how to use MitoGraph is available in:
 // Quantifying mitochondrial content in living cells
@@ -24,6 +21,7 @@
     double _rad = 0.150;
     double _dxy, _dz = -1.0;
     bool _export_graph_files = true;
+    bool _export_image_binary = false;
     bool _export_image_resampled = false;
     bool _scale_polydata_before_save = true;
     bool _export_nodes_label = true;
@@ -35,7 +33,7 @@
                                            // is also done to garantee that all non-zero
                                            // voxels were analysized.
 
-    std::string MITOGRAPH_VERSION = "v3.0";
+    std::string MITOGRAPH_VERSION = "v3.1";
 
     //                    |------06------|
     //                    |------------------------18------------------------|
@@ -1306,9 +1304,9 @@ void GetTopologicalAttributes(vtkSmartPointer<vtkPolyData> PolyData, _mitoObject
         ne += (k==1) ? 1 : 0;
         nb += (k>=3) ? 1 : 0;
     }
-    attribute newAtt_1 = {"#End points",ne};
+    attribute newAtt_1 = {"#End points",static_cast<double>(ne)};
     mitoObject -> attributes.push_back(newAtt_1);
-    attribute newAtt_2 = {"#Bifurcations",nb};
+    attribute newAtt_2 = {"#Bifurcations",static_cast<double>(nb)};
     mitoObject -> attributes.push_back(newAtt_2);
     // NUMBER OF CONNECTED COMPONENTS
     vtkSmartPointer<vtkPolyDataConnectivityFilter> CC = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
@@ -1551,12 +1549,20 @@ int MultiscaleVesselness(_mitoObject *mitoObject) {
 
         //BINARIZATION
         //------------
-
         Binary = BinarizeAndConvertDoubleToChar(ImageEnhanced,_div_threshold); // can use _mitoObj here
 
         //FILLING HOLES
         //-------------
         if (_improve_skeleton_quality) FillHoles(Binary);
+
+        // EXPORT SEGMENTED IMAGE
+        // ----------------------
+        if (_export_image_binary) {
+            vtkSmartPointer<vtkTIFFWriter> tif_writer = vtkSmartPointer<vtkTIFFWriter>::New();
+            tif_writer->SetInputData(Binary);
+            tif_writer->SetFileName((mitoObject->FileName + "_binary.tif").c_str());
+            tif_writer->Write();
+        }
 
         //MAX PROJECTION
         //--------------
@@ -1800,6 +1806,9 @@ int main(int argc, char *argv[]) {
         }
         if (!strcmp(argv[i],"-export_image_resampled")) {
             _export_image_resampled = true;
+        }
+        if (!strcmp(argv[i], "-export_image_binary")) {
+            _export_image_binary = true;
         }
         if (!strcmp(argv[i],"-binary")) {
             mitoObject._binary_input = true;
