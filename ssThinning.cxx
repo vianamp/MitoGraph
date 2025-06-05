@@ -61,9 +61,9 @@
 		if (direction == 'n' || direction == 's') axis = 'z';
 		if (direction == 'w' || direction == 'e') axis = 'x';
 
-			rotate(vector,vector90,axis);		 // 90° rotation
-		 rotate(vector90,vector180,axis);		 // 90° rotation
-		rotate(vector180,vector270,axis);		 // 90° rotation
+			rotate(vector,vector90,axis);		 // 90ï¿½ rotation
+		 rotate(vector90,vector180,axis);		 // 90ï¿½ rotation
+		rotate(vector180,vector270,axis);		 // 90ï¿½ rotation
 	}
 
 	void ssMask::print_mask() {
@@ -89,7 +89,7 @@
 
 
 	void ssMask::rotate(int vector[26],int *vector_rot,char axis) {
-		int register i;
+		int i;
 		int x, y, z, rt[9], aux[3][3][3];		 // Variables and auxiliar matrix
 		int rx[9] = {1,0,0,0,0,1,0,-1,0};		 // Rotation matrices (Rx, Ry and
 		int ry[9] = {0,0,-1,0,1,0,1,0,0};		 // Rz) are  stored  as  vectors.
@@ -125,7 +125,7 @@
 
 	bool ssMask::matchf(int ***Vol, int *vec) {
 		int v, q3 = 0;
-		int register i;
+		int i;
 		for (i=26;i--;) {
 			v = Vol[1+ssdx[i]][1+ssdy[i]][1+ssdz[i]];
 			if (vec[i]==0&&v!=0) return false;

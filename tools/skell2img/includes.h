@@ -10,7 +10,7 @@
 #include <vtkImageFlip.h>
 #include <vtkPolyLine.h>
 #include <vtkCellArray.h>
-#include <vtkLongArray.h>
+#include <vtkTypeInt64Array.h>
 #include <vtkImageData.h>
 #include <vtkDataArray.h>
 #include <vtkTransform.h>
