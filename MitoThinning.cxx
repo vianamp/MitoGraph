@@ -519,7 +519,8 @@ char GetNumberOfNeighborsWithoutValue(vtkSmartPointer<vtkImageData> Image, vtkSm
     char nn = 0;
     vtkIdType idk;
     for (char k = 26; k--;) {
-        idk = Image->FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        double point[3] = {(double)(x+ssdx[k]), (double)(y+ssdy[k]), (double)(z+ssdz[k])};
+        idk = Image->FindPoint(point);
         if (Volume->GetTuple1(idk) != value) nn++;
     }
     return nn;
@@ -539,7 +540,8 @@ char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmart
     char nn = 0;
     vtkIdType idk;
     for (char k = 26; k--;) {
-        idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        double point[3] = {(double)(x+ssdx[k]), (double)(y+ssdy[k]), (double)(z+ssdz[k])};
+        idk = Image -> FindPoint(point);
         if (Volume->GetTuple1(idk) == value) nn++;
     }
     return nn;
@@ -548,7 +550,8 @@ char GetNumberOfNeighborsWithValue(vtkSmartPointer<vtkImageData> Image, vtkSmart
 vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
-        idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        double point[3] = {(double)(x+ssdx[k]), (double)(y+ssdy[k]), (double)(z+ssdz[k])};
+        idk = Image -> FindPoint(point);
         if (Volume -> GetTuple1(idk) == value) {
             return idk;
         }
@@ -559,7 +562,8 @@ vtkIdType GetOneNeighborWithValue(int x, int y, int z, vtkSmartPointer<vtkImageD
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, vtkSmartPointer<vtkTypeInt64Array> Volume, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
-        idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        double point[3] = {(double)(x+ssdx[k]), (double)(y+ssdy[k]), (double)(z+ssdz[k])};
+        idk = Image -> FindPoint(point);
         if (Volume -> GetTuple1(idk) && Volume -> GetTuple1(idk) != value) {
             return idk;
         }
@@ -570,7 +574,8 @@ vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkIma
 vtkIdType GetOneNeighborWithoutValue(int x, int y, int z, vtkSmartPointer<vtkImageData> Image, long int value) {
     vtkIdType idk;
     for (char k = 26; k--;) {
-        idk = Image -> FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+        double point[3] = {(double)(x+ssdx[k]), (double)(y+ssdy[k]), (double)(z+ssdz[k])};
+        idk = Image -> FindPoint(point);
         if (Image->GetScalarComponentAsDouble(x+ssdx[k],y+ssdy[k],z+ssdz[k],0)!=value) return idk;
     }
     return 0;  // We can do it because, by construction the voxel at id 0 should always be empty
@@ -589,7 +594,8 @@ bool JunctionsMerge(std::list<vtkIdType> Junctions, vtkSmartPointer<vtkImageData
         junction_label = Volume -> GetTuple1(*itId);
         x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
         for (k = 0; k < 26; k++) {
-            id = Image->FindPoint(x+ssdx[k],y+ssdy[k],z+ssdz[k]);
+            double point[3] = {(double)(x+ssdx[k]), (double)(y+ssdy[k]), (double)(z+ssdz[k])};
+            id = Image->FindPoint(point);
             neigh_junction_label = Volume -> GetTuple1(id);
             if (junction_label < neigh_junction_label) {
                 _has_changed = true;
@@ -1133,7 +1139,8 @@ long int LabelConnectedComponents(vtkSmartPointer<vtkImageData> ImageData, vtkSm
             ImageData -> GetPoint(ido,r);
             x = (int)r[0]; y = (int)r[1]; z = (int)r[2];
             for (i = 0; i < ngbh; i++) {
-                id = ImageData -> FindPoint(x+ssdx_sort[i],y+ssdy_sort[i],z+ssdz_sort[i]);
+                double point[3] = {(double)(x+ssdx_sort[i]), (double)(y+ssdy_sort[i]), (double)(z+ssdz_sort[i])};
+                id = ImageData -> FindPoint(point);
                 v = Volume -> GetTuple1(id);
                 if (v > threshold) {
                     NextA -> InsertNextId(id);

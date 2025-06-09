@@ -10,7 +10,7 @@ Matheus Viana - vianamp@gmail.com - 06.25.2024
 
 ✓ MitoGraph is now compatible to Windows 10
 
-✓ Extra flag `-export_image_binary` to export the segmented version of the input
+✓ Extra flag to export the segmented version of the input
 
 ### <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.0">v3.0 Release</a>
 
