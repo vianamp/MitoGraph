@@ -1,4 +1,14 @@
-## Recipe for MacOS 12.5.1 Chipset M2
+## Recipe for MacOS 15.5 Chipset M2 and VTK9
+
+```
+brew install cmake vtk
+git clone https://github.com/vianamp/MitoGraph.git && cd MitoGraph
+mkdir build && cd build
+cmake ..
+make
+```
+
+## Recipe for MacOS 12.5.1 Chipset M2 and VTK8
 
 ```
 mkdir mitograph
@@ -20,7 +30,7 @@ cmake ..
 make
 ```
 
-## Recipe for Windows 10
+## Recipe for Windows 10 and VTK8
 
 1. Install CMake
 2. Install Visual Studio 17 2022
