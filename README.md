@@ -6,6 +6,10 @@ MitoGraph is a fully automated image processing method and software dedicated to
 
 Matheus Viana - vianamp@gmail.com - 06.25.2024
 
+### <a href="https://github.com/schoeneberglab/MitoGraph-GPU">v3.1-GPU</a>
+
+🚀 MitoGraph can now run on GPU. See the section *Contributions to MitoGraph* for more details.
+
 ### <a href="https://github.com/vianamp/MitoGraph/releases/tag/v3.1">v3.1 Release</a>
 
 ✓ MitoGraph is now compatible to Windows 10
@@ -111,6 +115,8 @@ The output of MitoGraph will be saved in the directory specified with `-path`.
 ---
 
 ### Contributions to MitoGraph
+
+* Thank you to Siddharth Nahar and Zichen Wang for developing a GPU-accelerated version of MitoGraph. For more information please visit the [official repository](https://github.com/schoeneberglab/MitoGraph-GPU).
 
 * Thank you [YonghaoZhao722](https://github.com/YonghaoZhao722) for making MitoGraph compatible with VTK9.
 
